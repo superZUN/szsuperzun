@@ -30,7 +30,7 @@ type Fixtures = {
 
 export const test = base.extend<Fixtures>({
   ns: async ({}, use, info) => {
-    await use(`t${info.workerIndex}-${info.testId}-${info.retry}`);
+    await use(`t${info.workerIndex}-${info.testId}-${info.retry}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`);
   },
   allowErrors: async ({}, use) => { await use([]); },
   errors: async ({ page, allowErrors }, use) => {
