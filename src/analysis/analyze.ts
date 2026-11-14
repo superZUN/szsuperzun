@@ -22,7 +22,7 @@ export const visAuto = () => cfg.visOn && Date.now() - S.visLast > 60000;
 export function pace() { const p = { ...paceParams() }; if (dailyTalk()) { p.gap *= 2; p.minChars = Math.round(p.minChars * 1.5); } return p; }
 
 export async function analyze(force: boolean) {
-  if (!ai.apiKey) { refreshNote(); return; }
+  if (!ai.apiKey) { if (force) refreshNote(); return; }
   if (S.standby) return;
   if (S.busy) { S.pending = true; return; }
   reconcileManual(); const full = joined();

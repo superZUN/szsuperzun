@@ -108,10 +108,12 @@ function makeRec() {
   };
   r.onerror = (e: any) => {
     if (r !== rs.rec) return; rs.lastErr = e.error;
-    if (e.error === "phrases-not-supported") { phrasesOk = false; setTimeout(() => restartRec("no-phrases"), 50); return; }
-    if ((e.error === "not-allowed" || e.error === "service-not-allowed") && everHeard && permRetries < 3) { permRetries++; showMicHint(true); setTimeout(() => restartRec("perm-retry"), 1200); return; }
+    // errors after which a fresh recogniser follows: detach this one first, so its own "end" does not also restart it
+    const replaceLater = (ms: number, why: string) => { rs.rec = null; try { r.abort(); } catch { /* gone */ } setTimeout(() => restartRec(why), ms); };
+    if (e.error === "phrases-not-supported") { phrasesOk = false; replaceLater(50, "no-phrases"); return; }
+    if ((e.error === "not-allowed" || e.error === "service-not-allowed") && everHeard && permRetries < 3) { permRetries++; showMicHint(true); replaceLater(1200, "perm-retry"); return; }
     if (e.error === "not-allowed" || e.error === "service-not-allowed") micFail(location.protocol === "https:" || location.hostname === "localhost" ? "마이크 사용이 막혀 있어요. 주소창 왼쪽 아이콘(사이트 설정)에서 마이크를 '허용'으로 바꾼 뒤 다시 '시작'을 눌러 주세요." : "마이크는 https 주소에서만 작동해요. Netlify 등에 올린 주소로 열어 주세요.");
-    else if (e.error === "audio-capture") { if (vadLive()) { vad.failed = true; vadStop(); vad.err = "막대 끔 (마이크를 인식에 양보)"; setTimeout(() => restartRec("mic-conflict"), 200); return; } micFail("마이크를 찾지 못했어요. 마이크 연결을 확인해 주세요."); }
+    else if (e.error === "audio-capture") { if (vadLive()) { vad.failed = true; vadStop(); vad.err = "막대 끔 (마이크를 인식에 양보)"; replaceLater(200, "mic-conflict"); return; } micFail("마이크를 찾지 못했어요. 마이크 연결을 확인해 주세요."); }
     else if (e.error === "network") { $("aiNote").textContent = "음성 인식 서버 연결이 끊겨 다시 연결하는 중…"; }
   };
   r.onend = () => {

@@ -17,6 +17,8 @@ export interface Opts {
   key?: boolean | string;
   /** documents put into the legacy IndexedDB before the app loads */
   idbDocs?: any[];
+  /** false = stay on the tab the app chose (settings when there is no key) */
+  tab?: false;
 }
 
 type Fixtures = {
@@ -63,6 +65,7 @@ export const test = base.extend<Fixtures>({
         await page.reload();
         await expect(page.locator("html[data-docs='1']")).toHaveCount(1);
       }
+      if (opts.tab !== false) await page.click("#tabLive");
       void errors;
       return page;
     });

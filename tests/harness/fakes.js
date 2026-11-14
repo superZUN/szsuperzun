@@ -32,6 +32,7 @@
       this.onstart = this.onend = this.onresult = this.onerror = null;
       this.onaudiostart = this.onsoundstart = this.onspeechstart = this.onaudioend = this.onsoundend = this.onspeechend = null;
       this._state = "idle"; this._results = new FakeResultList();
+      if (sr.phrases) this.phrases = [];
       sr.instances.push(this);
     }
     _fire(type, props = {}) {
