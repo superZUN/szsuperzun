@@ -13,6 +13,10 @@ export const FAKES = path.join(here, "fakes.js");
 export interface Opts {
   /** localStorage entries set before the app loads */
   storage?: Record<string, string>;
+  /** an Anthropic key (true = "sk-test") */
+  key?: boolean | string;
+  /** documents put into the legacy IndexedDB before the app loads */
+  idbDocs?: any[];
 }
 
 type Fixtures = {
@@ -44,14 +48,33 @@ export const test = base.extend<Fixtures>({
   },
   open: async ({ page, errors }, use) => {
     await use(async (opts = {}) => {
-      if (opts.storage) {
-        await page.addInitScript((s) => { if (!sessionStorage.getItem("__seeded")) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v); sessionStorage.setItem("__seeded", "1"); } }, opts.storage);
+      const storage = { ...(opts.key ? { "ms.key.anthropic": opts.key === true ? "sk-test" : opts.key } : {}), ...(opts.storage || {}) };
+      if (Object.keys(storage).length) {
+        await page.addInitScript((s) => { if (!sessionStorage.getItem("__seeded")) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v as string); sessionStorage.setItem("__seeded", "1"); } }, storage);
       }
       await page.goto("/");
       await expect(page.locator("html[data-ready='1']")).toHaveCount(1);
+      await expect(page.locator("html[data-docs='1']")).toHaveCount(1);
+      if (opts.idbDocs) { // written the way the legacy app stored them, then the app is reloaded
+        await page.evaluate((docs) => new Promise<void>((res) => {
+          const r = indexedDB.open("meeting-copilot", 1);
+          r.onsuccess = () => { const tx = r.result.transaction("docs", "readwrite"); docs.forEach((d: any) => tx.objectStore("docs").put(d)); tx.oncomplete = () => { r.result.close(); res(); }; };
+        }), opts.idbDocs);
+        await page.reload();
+        await expect(page.locator("html[data-docs='1']")).toHaveCount(1);
+      }
       void errors;
       return page;
     });
   },
 });
 export { expect };
+
+/** press 시작 and wait until the (fake) recogniser is listening */
+export async function startListening(page: Page) {
+  await page.click("#startBtn");
+  await expect.poll(() => page.evaluate(() => !!(window as any).__sr.live)).toBe(true);
+}
+export const app = (page: Page, expr: string) => page.evaluate(`(() => { const A = window.__app; return ${expr}; })()`);
+/** a JSON-array analysis answer */
+export const cardsJSON = (items: any[]) => JSON.stringify(items);

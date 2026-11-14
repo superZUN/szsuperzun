@@ -9,7 +9,350 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 </head>
 <body>
-<div id="app"></div>
+<div class="app">
+  <header>
+    <div class="brand"><h1>회의 옆자리</h1><span class="sub">Neural meeting interface</span></div>
+    <div class="seg appmode" role="tablist" aria-label="모드"><button id="modeMeet" role="tab" aria-selected="true">회의</button><button id="modeConv" role="tab" aria-selected="false">대화</button></div>
+    <button id="topicChip" class="topic" hidden title="지금 대화가 일상인지 업무인지 — 누르면 직접 바꿀 수 있어요">일상</button>
+    <span id="status" class="status">STANDBY</span>
+    <select id="lang" class="lang" aria-label="인식 언어"><option value="ko-KR">KO</option><option value="en-US">EN</option></select>
+    <button id="startBtn" class="primary">시작</button>
+  </header>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabLive" aria-selected="true">실시간</button>
+    <button role="tab" id="tabPrep" aria-selected="false">준비 <span id="prepCount" class="num"></span></button>
+    <button role="tab" id="tabKb" aria-selected="false">회의록 <span id="kbCount" class="num">0</span></button>
+    <button role="tab" id="tabTodo" aria-selected="false">할 일 <span id="todoCount" class="num"></span></button>
+    <button role="tab" id="tabSet" aria-selected="false">설정</button>
+  </div>
+
+  <section id="liveView" class="view">
+    <div id="kwBar" class="kwbar"><span class="mono kwlbl">KEYWORDS</span><div id="kwList" class="chips" aria-label="대화에서 나온 키워드"></div><span id="kwEmpty" class="hint">대화에 나온 키워드가 여기에 쌓이고, 누르면 정의·지난 회의·검색 결과를 보여줍니다.</span></div>
+    <div id="agBar" class="agbar">
+      <div class="agmain">
+        <span id="agPos" class="mono agpos">AGENDA</span>
+        <span id="agTitle" class="agtitle">안건 없음 · '준비' 탭에서 추가</span>
+        <span id="agTime" class="mono agtime"></span>
+      </div>
+      <div class="agside">
+        <span id="totTime" class="mono agtime"></span>
+        <button id="agPrev" aria-label="이전 안건">◀</button><button id="agNext" aria-label="다음 안건">▶</button>
+        <button id="chkBtn">마무리 점검</button>
+      </div>
+    </div>
+    <div id="field" class="field">
+      <canvas id="hud" aria-hidden="true"></canvas>
+    </div>
+    <div id="announce" class="sr" aria-live="polite"></div>
+    <div class="dock">
+      <div id="boundaryBar" class="endbar wrapbar" hidden role="alertdialog" aria-labelledby="boundaryMsg"><span class="mono">New meeting?</span><span id="boundaryMsg" class="hint" style="flex:1 1 200px"></span><button id="bCont">이어서 기록</button><button id="bNew" class="primary">새 회의로 시작</button></div>
+      <div id="restoreBar" class="endbar" hidden><span class="mono">Restored</span><span id="restoreMsg" class="hint" style="flex:1"></span><button id="restoreOk">계속</button></div>
+      <div id="endBar" class="endbar" hidden><span class="mono">Session ended</span><span class="hint" style="flex:1">받아쓴 대화로 회의록을 만들 수 있습니다.</span><button id="chkBtn2">마무리 점검</button><button id="minutesBtn" class="primary">회의록 작성</button></div>
+        <div id="micBar" class="micbar" hidden aria-live="polite">
+          <span class="lbl">MIC</span><span id="micMeter" class="meter" title="마이크 입력 크기"><i></i></span><span id="micState" class="mstate">—</span>
+          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="recCount" class="mcount"></span><button id="micCheckBtn" class="mini">마이크 점검</button>
+        </div>
+      <div class="row tickrow">
+        <div id="ticker" class="ticker"><span class="lbl">AUDIO ›</span><span id="live" class="txt idle">STANDBY</span></div>
+        <button id="markNow" class="hl" title="지금 앞뒤 30초를 중요 내용으로 표시">★ 중요 <span id="markCount" class="num"></span></button>
+      </div>
+      <div id="askChips" class="chips" hidden>
+        <button data-q="방금 30초 동안 나온 말을 쉽게 풀어서 요약해줘. 영어였다면 한국어로 옮겨줘.">방금 뭐라고 했지?</button>
+        <button data-q="지금까지 회의 내용을 3줄로 요약해줘.">지금까지 요약</button>
+        <button data-q="지금까지 결정된 사항만 정리해줘.">결정된 것</button>
+        <button data-q="아직 결론이 안 난 쟁점이 뭐야?">남은 쟁점</button>
+        <button data-q="지난 회의 내용과 지금 달라진 점이 있어?">지난 회의와 비교</button>
+      </div>
+      <div class="row inrow">
+        <div class="seg" role="tablist" aria-label="입력 종류">
+          <button id="modeMemo" role="tab" aria-selected="true">메모</button><button id="modeAsk" role="tab" aria-selected="false">질문</button><button id="modeAct" role="tab" aria-selected="false">할 일</button>
+        </div>
+        <input id="memoInput" placeholder="중요한 내용을 직접 적기 (Enter)" enterkeyhint="done" aria-label="메모">
+        <input id="askInput" placeholder="물어보기 — 지난번 납기 합의가 뭐였지?" enterkeyhint="send" aria-label="질문" hidden>
+        <input id="actInput" placeholder="할 일 — 담당·기한도 함께 (예: 샘플 수량 확정 / 김민수 / 11/5)" enterkeyhint="done" aria-label="할 일" hidden>
+        <button id="memoAdd">추가</button><button id="askBtn" class="primary" hidden>질문</button><button id="actAdd" hidden>추가</button>
+      </div>
+      <div class="row tools">
+        <select id="mode" aria-label="회의 유형">
+          <option value="general">일반 회의</option>
+          <option value="english">영어 회의</option>
+          <option value="tech">기술 논의</option>
+          <option value="client">고객·협력사 미팅</option>
+        </select>
+        <button id="analyzeBtn">지금 분석</button>
+        <button id="rawBtn" aria-expanded="false">원문</button>
+        <button id="actBtn">할 일 <span id="actCount" class="num">0</span></button>
+        <button id="histBtn">기록 <span id="histCount" class="num">0</span></button>
+      </div>
+      <div id="transcriptWrap" hidden>
+        <div class="row small">
+          <div class="seg" role="tablist" aria-label="받아쓰기 보기">
+            <button id="viewFixed" role="tab" aria-selected="true">교정본</button><button id="viewRaw" role="tab" aria-selected="false">원문</button>
+          </div>
+          <span id="fixStat" class="hint" style="flex:1"></span>
+        </div>
+        <textarea id="transcript" placeholder="'시작'을 누르고 마이크를 허용하면 들리는 대화가 이곳에 실시간으로 쌓입니다. 직접 입력해도 됩니다."></textarea>
+        <div id="rawView" class="rawview" hidden></div>
+        <div id="markForm" class="row small wrap" hidden>
+          <input id="markWrong" placeholder="잘못 받아쓴 말" aria-label="잘못 받아쓴 말">
+          <span class="hint">→</span>
+          <input id="markRight" placeholder="올바른 용어" aria-label="올바른 용어">
+          <button id="markAdd" class="primary">사전 등록</button><button id="markCancel">취소</button>
+        </div>
+        <div id="markMsg" class="hint"></div>
+        <div class="row small">
+          <span class="hint" style="flex:1">틀린 단어를 선택한 뒤 '오인식 등록'</span>
+          <button id="markBtn">오인식 등록</button><button id="minutesBtn2">회의록 작성</button><button id="clearBtn">비우기</button>
+        </div>
+      </div>
+      <div id="aiNote" class="hint"></div>
+      <div id="micHint" class="michint" hidden role="status"><span id="micHintMsg"></span><button id="micHintClose">알겠어요</button></div>
+    </div>
+  </section>
+
+  <section id="prepView" class="view" hidden>
+    <div class="kb">
+      <div class="panel">
+        <h2>Meeting<span>회의 정보</span></h2>
+        <label class="f">회의 이름<input id="pTitle" placeholder="예: 11/4 Formation 주간회의"></label>
+        <label class="f">예정 시간 (분)<input id="pDur" type="number" min="5" max="600" step="5" inputmode="numeric" placeholder="60"></label>
+        <div class="row"><span class="hint" style="flex:1">회의를 마치고 새 회의를 시작할 때 지난 받아쓰기·메모·할 일·준비 내용을 모두 비웁니다.</span><button id="newMeeting">새 회의</button></div>
+        <div id="newMsg" class="hint"></div>
+      </div>
+      <div class="panel">
+        <h2>Agenda<span>안건</span></h2>
+        <div class="note">한 줄에 하나씩 적고, 끝에 숫자를 적으면 배정 시간(분)이 됩니다. 회의 중 실시간 화면 위쪽에서 ◀ ▶로 안건을 넘기면 회의록이 안건별로 정리되고, 시간이 넘으면 알려 줍니다.</div>
+        <textarea id="pAgenda" style="height:120px;font-size:14px" placeholder="샘플 납기 현황 10
+IR NG 개선 대책 15
+차주 생산 계획 5"></textarea>
+      </div>
+      <div class="panel">
+        <h2>Attendees<span>참석자</span></h2>
+        <div class="note">한 줄에 한 명. 이름이 음성 인식에서 틀리지 않게 돕고, 회의록의 참석자·담당자에 쓰입니다.</div>
+        <textarea id="pPeople" style="height:100px;font-size:14px" placeholder="김민수 팀장 (구매)
+박지은 (품질)"></textarea>
+      </div>
+      <div class="panel">
+        <h2>Carry-over<span>지난 회의 할 일</span></h2>
+        <div id="carryInfo" class="note">회의록을 작성하면 그 회의의 할 일이 여기로 넘어와, 다음 회의에서 진행 상황을 점검합니다.</div>
+        <div id="carryList"></div>
+        <div class="row"><span class="hint" style="flex:1">완료한 항목은 체크하세요. 회의 중 언급되면 분석 카드로 알려 줍니다.</span><button id="carryClear">목록 비우기</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="kbView" class="view" hidden>
+    <div class="kb">
+      <div class="panel">
+        <h2>Import<span>회의록·자료 올리기</span></h2>
+        <ol class="steps note">
+          <li>지난 회의록, Plaud 전사본·요약, 사양서·보고서·발표 자료 같은 파일을 올립니다.</li>
+          <li>올린 자료는 이 기기에 저장되고, 서버 암호를 넣었다면 서버에도 올라가 다른 기기에서도 보입니다.</li>
+          <li>회의·대화 중에 관련 대목을 바로 띄우고, 질문에 답할 때 근거로 씁니다.</li>
+        </ol>
+        <label class="drop" id="drop" for="fileInput">파일 선택 또는 여기로 끌어놓기<br><span class="hint">PDF · Word(.docx) · PowerPoint(.pptx) · Excel(.xlsx) · 한글(.hwpx) · TXT · MD · CSV · SRT · 여러 개 가능</span></label>
+        <input id="fileInput" type="file" multiple accept=".txt,.md,.srt,.vtt,.docx,.pptx,.xlsx,.hwpx,.pdf,.csv,.tsv,.json,text/plain,application/pdf" hidden>
+        <div id="uploadMsg" class="hint"></div>
+      </div>
+      <div class="panel">
+        <h2>Paste<span>텍스트 붙여넣기</span></h2>
+        <input id="pasteName" placeholder="회의 이름 (예: 10/28 셀 라인 주간회의)">
+        <textarea id="pasteText" style="height:110px" placeholder="Plaud 요약이나 전사본을 복사해 붙여넣으세요."></textarea>
+        <button id="pasteSave" class="primary">저장</button>
+      </div>
+      <div class="panel">
+        <h2>Memory<span>저장된 회의록</span></h2>
+        <div class="row"><span id="syncMsg" class="hint" style="flex:1">서버 동기화 비밀번호(설정 탭)를 넣으면 회의록이 서버에도 저장되어 다른 기기에서 불러올 수 있습니다.</span><button id="syncDocs">서버와 동기화</button></div>
+        <input id="docSearch" placeholder="회의록 검색 — 제목이나 내용 (예: 납기, IR)" aria-label="회의록 검색">
+        <div id="docList"></div>
+        <div class="hint">☁ 표시는 서버에도 저장된 회의록입니다. 분석할 때는 관련 부분 일부만 AI로 전달됩니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="todoView" class="view" hidden>
+    <div class="todo">
+      <div class="row tadd"><input id="todoInput" placeholder="할 일 추가 — 할 일 / 담당 / 기한 (예: 샘플 재측정 / 박지은 / 11/20)" aria-label="할 일 추가" enterkeyhint="done"><button id="todoAdd" class="primary">추가</button></div>
+      <div class="row tbar"><div class="tfil" role="toolbar" aria-label="보기"><button id="todoF_open" aria-pressed="true">진행 중</button><button id="todoF_done" aria-pressed="false">완료</button><button id="todoF_all" aria-pressed="false">전체</button></div>
+        <input id="todoSearch" type="search" placeholder="검색" aria-label="할 일 검색"></div>
+      <div id="todoList" class="tlist"></div>
+      <div id="todoUndo" class="tundo" hidden role="status"><span id="todoUndoMsg"></span><button id="todoUndoBtn">되돌리기</button></div>
+      <div class="hint">체크하면 끝낸 일로 옮겨지고, 결과를 한 줄 적을 수 있습니다. 할 일을 누르면 결과·담당·기한을 고칠 수 있습니다. 회의 중 찾은 할 일도 자동으로 여기에 모입니다. <span id="todoSync"></span></div>
+    </div>
+  </section>
+
+  <section id="setView" class="view" hidden>
+    <div class="kb">
+      <div class="panel">
+        <h2>Link<span>AI 연결</span></h2>
+        <label class="f">AI 서비스
+          <select id="provider">
+            <option value="anthropic">Anthropic Claude</option>
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="compat">OpenAI 호환 API (직접 입력)</option>
+          </select>
+        </label>
+        <label class="f" id="baseWrap" hidden>API 주소 (Base URL)
+          <input id="baseUrl" spellcheck="false" placeholder="https://api.example.com/v1">
+        </label>
+        <label class="f">API 키
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="f">빠른 모델 — 실시간 분석·교정·질문
+          <input id="model" spellcheck="false" list="modelList">
+        </label>
+        <label class="f">꼼꼼한 모델 — 회의록 '꼼꼼하게'
+          <input id="deepModel" spellcheck="false" list="modelList">
+        </label>
+        <datalist id="modelList"></datalist>
+        <div class="row wrap">
+          <button id="saveKey" class="primary">저장</button>
+          <button id="testKey">연결 확인</button>
+          <button id="listModels">모델 목록</button>
+          <button id="forgetKey">키 지우기</button>
+        </div>
+        <div id="keyMsg" class="hint"></div>
+        <div id="provHint" class="hint"></div>
+      </div>
+      <div class="panel">
+        <h2>Lexicon<span>용어 사전</span></h2>
+        <div class="basebox">
+          <label class="row" style="gap:8px;flex:1;font-size:13.5px"><input id="baseOn" type="checkbox" style="width:auto;flex:none"> 기본 사전 · Formation·EOL 용어 <span id="baseCount" class="num"></span>개</label>
+          <button id="baseShow" aria-expanded="false" style="font-size:12px;padding:5px 10px">목록 보기</button>
+        </div>
+        <div id="baseList" class="baselist" hidden></div>
+        <div class="basebox">
+          <label class="row" style="gap:8px;flex:1;font-size:13.5px"><input id="libOn" type="checkbox" style="width:auto;flex:none"> 기본 사전 · 리튬이온전지 용어·메커니즘 <span id="libCount" class="num"></span>개</label>
+          <button id="libShow" aria-expanded="false" style="font-size:12px;padding:5px 10px">목록 보기</button>
+        </div>
+        <div id="libList" class="baselist" hidden></div>
+        <div class="note">기본 사전 외에 더할 용어(제품명, 고객사, 사람 이름 등)는 아래에 한 줄에 하나씩 적어 주세요. 자주 틀리게 받아써지는 형태를 함께 적으면 더 정확해집니다.</div>
+        <textarea id="glossary" style="height:150px;font-size:14px" spellcheck="false" placeholder="SOH = State of Health (배터리 건강도) · 오인식: 에스오에이치, 소
+NSE = NextStar Energy
+셀 라인 3호기 · 오인식: 쎌라인, 셀라인삼호기
+김민수 팀장 (구매)"></textarea>
+        <label class="row" style="gap:8px;font-size:13px;color:var(--ink-2)"><input id="fixOn" type="checkbox" style="width:auto;flex:none"> 실시간 교정 사용 — AI가 사전과 문맥을 보고 받아쓰기 오류를 바로잡습니다 (API 비용 약 1.5배)</label>
+        <label class="f">서버 동기화 비밀번호 (Netlify에 설정한 SIDEKICK_PASSCODE)
+          <input id="passcode" type="password" autocomplete="off" spellcheck="false" placeholder="비워 두면 이 기기에만 저장">
+        </label>
+        <div class="row"><button id="saveGloss" class="primary">사전 저장</button><button id="syncGloss">서버에서 불러오기</button></div>
+        <div id="glossMsg" class="hint"></div>
+        <div class="hint">비밀번호를 넣으면 사전이 웹서버(Netlify)에 저장되어, 다른 기기에서도 같은 비밀번호로 불러올 수 있습니다. 분석할 때는 앞부분 약 2,000자까지 Claude API로 함께 전달됩니다.</div>
+      </div>
+      <div class="panel">
+        <h2>Minutes<span>회의록 양식 (선택)</span></h2>
+        <div class="note">회사에서 쓰는 회의록 형식이 있으면 붙여넣어 주세요. 비워 두면 기본 양식(개요·결정 사항·할 일·논의 내용·미결 사항)으로 작성합니다.</div>
+        <textarea id="minTemplate" style="height:120px;font-size:14px" placeholder="예)
+1. 회의명 / 일시 / 참석자
+2. 안건별 논의 결과
+3. Action Item (담당, 기한)
+4. 차기 회의"></textarea>
+        <div class="row"><button id="saveTemplate">양식 저장</button><span id="tplMsg" class="hint" style="flex:1"></span></div>
+      </div>
+      <div class="panel">
+        <h2>Lookup<span>키워드 즉시 표시·외부 검색</span></h2>
+        <label class="f">답변 말머리 — 질문에 답할 때 맨 앞에 붙는 말 (비우면 안 붙음)<input id="answerLead" placeholder="예: 네, 장군님."></label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="instantOn" type="checkbox" style="width:auto;flex:none" checked> 키워드 즉시 표시 — AI를 기다리지 않고 사전 정의·지난 회의 문장을 바로 띄움 (비용 없음)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="wikiOn" type="checkbox" style="width:auto;flex:none" checked> 위키백과 요약 — 일반 키워드의 위키백과 첫 문단 (비용 없음)</label>
+        <label class="f">배터리 절약
+          <select id="powerMode"><option value="auto">자동 — 조용할 때는 화면 애니메이션을 낮춤 (권장)</option><option value="save">최대 절약 — 애니메이션 최소, 화면 해상도 낮춤</option><option value="full">끄기 — 항상 최고 화질</option></select>
+        </label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="visOn" type="checkbox" style="width:auto;flex:none" checked> 그림 자동 표시 — 공정 흐름·구조·인과관계처럼 그림이 도움이 되는 대목에서 AI가 다이어그램을 그림 (1분에 최대 1장, 소액 과금)</label>
+        <div class="hint">질문에 '그림으로', '도식', '흐름도', '사진' 같은 말을 넣으면 답과 함께 다이어그램이나 사진을 띄웁니다. 키워드를 눌러 '그림으로 보기'·'사진 찾기'도 할 수 있습니다.</div>
+        <label class="f">AI 웹 검색 — 최신 정보를 웹에서 찾아 요약 (Claude·Gemini만, 검색 1회당 소액 과금)
+          <select id="webMode"><option value="conv">대화 모드에서만</option><option value="always">항상</option><option value="off">끄기</option></select>
+        </label>
+        <div class="hint">AI 웹 검색은 새 키워드마다 최대 1번, 15초에 1번까지만 실행합니다. Claude는 1,000회당 약 $10, Gemini는 매월 5,000회까지 무료 후 1,000회당 약 $14입니다.</div>
+      </div>
+      <div class="panel">
+        <h2>Cost<span>비용 관리</span></h2>
+        <label class="f">분석 빈도
+          <select id="pace"><option value="balanced">균형 — 3초·30자마다 (권장)</option><option value="fast">빠르게 — 1초·15자마다 (예전 방식, 비용 큼)</option><option value="save">절약 — 6초·60자마다</option></select>
+        </label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="fixDaily" type="checkbox" style="width:auto;flex:none"> 일상 대화에서도 실시간 교정 (기본: 업무·회의에서만)</label>
+        <label class="f">하루 한도 — AI 호출 수 (비우면 한도 없음, 넘으면 자동으로 절약 모드)<input id="dailyLimit" type="number" min="0" step="50" inputmode="numeric" placeholder="예: 1500"></label>
+        <div id="usageBox" class="usage mono" aria-live="polite"></div>
+        <div class="hint">일상 대화에서는 분석을 두 배 드물게 합니다. Claude는 매번 같은 지시문·용어 사전 부분을 캐시해 입력 비용을 줄입니다. 토큰 수는 AI가 알려 준 값이 없으면 글자 수로 어림합니다.</div>
+      </div>
+      <div class="panel">
+        <h2>Audio<span>음성 인식 안내</span></h2>
+        <div class="row"><button id="micCheckBtn2">마이크 점검</button><span class="hint" style="flex:1">말을 못 알아들을 때: 마이크 문제인지, 음성 인식 문제인지, 둘이 부딪히는 건지 11초 만에 알려 줍니다.</span></div>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="vadOn" type="checkbox" style="width:auto;flex:none" checked> 음성 감지 — 마이크 소리 크기를 따로 지켜보다가, 말소리는 들리는데 글자가 안 나오면 음성 인식을 바로 다시 켭니다 (상태 옆 막대)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="allDay" type="checkbox" style="width:auto;flex:none"> 하루 종일 켜두기 — 3분간 조용하면 대기(음성 인식·AI·화면 애니메이션 멈춤, 화면 어둡게), 목소리가 들리면 자동으로 깨어남</label>
+        <div class="hint">하루 종일 켜둘 때는 아이패드를 충전기에 연결해 두세요. 앱이 켜져 있는 동안 화면이 자동으로 꺼지지 않게 막습니다(화면이 꺼지면 아이패드가 마이크를 끊습니다).</div>
+        <div class="note">Chrome, Edge, Safari에서 작동합니다(Firefox 미지원). 브라우저의 음성 인식은 음성을 브라우저 회사 서버(Chrome은 Google, Safari는 Apple)로 보내 글자로 바꿉니다. 마이크는 https 주소에서만 작동합니다.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="그림 크게 보기"><div class="lbbar"><span id="lbTitle"></span><button id="lbZoom">확대</button><button id="lbSave">PNG 저장</button><a id="lbOpen" class="btnlink" target="_blank" rel="noopener noreferrer" hidden>원본</a><button id="lbClose">닫기</button></div><div id="lbImg" class="lbimg"></div></div>
+<div id="sleepVeil" class="sleepveil" hidden role="button" aria-label="대기 중 — 누르면 깨어납니다"><div id="sleepClock" class="sclock"></div><div id="sleepMsg" class="smsg"></div><div class="hint">화면을 누르면 바로 깨어납니다</div></div>
+<div id="focusVeil" class="veil" hidden><div id="focusCard" class="focus" role="dialog" aria-modal="true"></div></div>
+<div id="minSheet" class="sheet tall" hidden role="dialog" aria-label="회의록">
+  <header><h2>MINUTES · 회의록</h2><button id="minClose">닫기</button></header>
+  <div class="minwrap">
+    <div class="row minopts">
+      <input id="minTitle" placeholder="회의 이름">
+      <select id="minModel" aria-label="정리 모델" style="flex:none;width:auto">
+        <option value="fast">빠르게 (Haiku 5.5)</option>
+        <option value="deep">꼼꼼하게 (Sonnet 5.5)</option>
+      </select>
+      <button id="minGo" class="primary">작성</button>
+    </div>
+    <div id="minStage" class="stagebar" hidden role="status" aria-live="polite"></div>
+    <div id="minReview" class="reviewbox" hidden>
+      <b>자동 검증에서 남은 문제</b>
+      <ul id="minIssues"></ul>
+      <div class="row wrap"><span class="hint" style="flex:1 1 200px">내용을 확인한 뒤 확정하거나, 다시 작성할 수 있습니다. 확정 전까지 회의록 탭에는 '검토 필요'로 표시되고 서버에는 올라가지 않습니다.</span><button id="minRedo">다시 작성</button><button id="minAccept" class="primary">이대로 확정</button></div>
+    </div>
+    <div id="minOut" class="minout"><div class="note">'작성'을 누르면 대화 기록을 맥락에 맞게 교정하고, 회의록을 쓴 뒤 검증해서 문제가 없을 때 최종 회의록으로 저장합니다.</div></div>
+    <div class="row wrap" id="minActions" hidden>
+      <span id="minMsg" class="hint" style="flex:1 1 160px"></span>
+      <button id="minShare">공유</button>
+      <button id="minCopy">복사</button>
+      <button id="minSave">.md 저장</button>
+      <button id="rawSave">원문 .txt</button>
+      <button id="mailBtn" class="primary">후속 메일</button>
+    </div>
+    <div id="mailBox" class="mailbox" hidden>
+      <div class="row"><span class="mono" style="font-size:10px;color:var(--cy);flex:1">Follow-up mail · 후속 메일 초안</span><button id="mailCopy">복사</button><button id="mailOpen">메일 앱으로</button></div>
+      <input id="mailTo" placeholder="받는 사람 (선택, 쉼표로 구분)">
+      <input id="mailSubj" placeholder="제목">
+      <textarea id="mailBody" style="height:180px;font-size:14px"></textarea>
+    </div>
+  </div>
+</div>
+<div id="actSheet" class="sheet" hidden role="dialog" aria-label="할 일">
+  <header><h2>ACTIONS · 할 일</h2><button id="actClose">닫기</button></header>
+  <div class="hist">
+    <div class="note" style="margin-bottom:8px">회의 중 AI가 찾은 할 일과 직접 추가한 할 일입니다. 내용·담당·기한을 고칠 수 있고, 회의록의 할 일 표와 다음 회의 점검에 그대로 쓰입니다.</div>
+    <div id="actList"></div>
+  </div>
+</div>
+<div id="chkSheet" class="sheet tall" hidden role="dialog" aria-label="마무리 점검">
+  <header><h2>CHECK · 마무리 점검</h2><button id="chkRun">다시 점검</button><button id="chkClose">닫기</button></header>
+  <div class="minwrap"><div id="chkOut" class="minout"></div></div>
+</div>
+<div id="docSheet" class="sheet tall" hidden role="dialog" aria-labelledby="docTitle">
+  <header><h2 id="docTitle">회의록</h2><button id="docShare">공유</button><button id="docCopy">복사</button><button id="docSave">저장</button><button id="docClose">닫기</button></header>
+  <div class="minwrap"><div id="docMeta" class="hint"></div><div id="docOut" class="minout"></div></div>
+</div>
+<div id="board" class="board" hidden role="dialog" aria-label="기록 보드">
+  <header class="bhead"><h2>ARCHIVE · 기록 보드</h2><input id="boardSearch" type="search" placeholder="검색 — 키워드·내용·출처" aria-label="기록 보드 검색"><span id="boardCount" class="num"></span>
+    <button id="boardTidy" title="흩어진 상자를 다시 줄 세웁니다">정렬</button><button id="boardList">목록</button><button id="boardClose">닫기</button></header>
+  <div id="boardTypes" class="btypes" role="toolbar" aria-label="종류"></div>
+  <div id="boardView" class="bview"><div id="boardPlane" class="bplane"></div></div>
+</div>
+<div id="mcSheet" class="sheet" hidden role="dialog" aria-label="마이크 점검">
+  <header><h2>MIC CHECK · 마이크 점검</h2><button id="mcClose">닫기</button></header>
+  <div class="hist mcbox"><div id="mcStep" class="mcstep"></div><span class="meter mcmeter"><i id="mcLvl"></i></span><div id="mcHeard" class="hint"></div><div id="mcResult" class="mcres"></div><div id="mcBtns" class="row"></div></div>
+</div>
+<div id="histSheet" class="sheet" hidden role="dialog" aria-label="분석 기록">
+  <header><h2>LOG · 분석 기록</h2><button id="histClose">닫기</button></header>
+  <div id="histList" class="hist"></div>
+</div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
