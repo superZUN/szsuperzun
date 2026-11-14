@@ -89,13 +89,17 @@ export function queueFix() {
   if (!fixActive()) { // nothing to wait for: show the raw text as final
     let ch = false; S.segs.forEach((s) => { if (s.fix == null && !s.busy) { s.fix = s.raw; ch = true; } }); if (ch) renderTranscript(); return;
   }
-  clearTimeout(fixTimer);
-  const n = S.segs.filter((s) => s.fix == null && !s.busy).length; if (!n) return;
-  const fast = effectivePace() === "fast", batch = fast ? 2 : 4, wait = fast ? 700 : 2500; // changed from legacy (2 / 0.7 s): cost
-  if (n >= batch) void runFix(); else fixTimer = setTimeout(runFix, wait);
+  const waiting = S.segs.filter((s) => s.fix == null && !s.busy); const n = waiting.length; if (!n) { clearTimeout(fixTimer); return; }
+  // changed from legacy (2 sentences / 0.7 s, i.e. about one call per sentence): batches by cost setting;
+  // a lone sentence waits at most `maxWait` from when it was said (the minutes re-correct everything anyway)
+  const pace = effectivePace(), batch = pace === "fast" ? 2 : pace === "save" ? 6 : 4, maxWait = pace === "fast" ? 700 : pace === "save" ? 20000 : 10000;
+  if (n >= batch) { clearTimeout(fixTimer); void runFix(); return; }
+  if (pace === "fast") { clearTimeout(fixTimer); fixTimer = setTimeout(runFix, maxWait); return; }
+  if (!fixTimer) fixTimer = setTimeout(() => { fixTimer = null; void runFix(); }, Math.max(0, waiting[0].at + maxWait - Date.now()));
 }
 export const plausible = (fixed: string, raw: string) => !!fixed && fixed.length <= raw.length * 2 + 24 && fixed.length >= raw.length * 0.4;
 async function runFix() {
+  clearTimeout(fixTimer); fixTimer = null;
   if (fixing) return; const batch = S.segs.filter((s) => s.fix == null && !s.busy).slice(0, 6); if (!batch.length) return;
   fixing = true; batch.forEach((s) => { s.busy = true; });
   const i0 = S.segs.indexOf(batch[0]), before = S.segs.slice(Math.max(0, i0 - 6), i0).map(segText).join(" ").slice(-400);
