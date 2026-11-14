@@ -138,3 +138,32 @@ export async function mockWiki(page: Page, data: { ko?: Record<string, WikiPage>
     route.fulfill({ status: 200, contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") }));
   return { hits };
 }
+
+/**
+ * A slow, really-streaming Claude: for requests whose prompt matches `match`, the page's fetch returns an SSE body that
+ * releases `pieces` one at a time, `everyMs` apart (route.fulfill can only send a whole body at once).
+ */
+export async function slowClaude(page: Page, match: string, pieces: string[], everyMs: number) {
+  await page.addInitScript(({ match, pieces, everyMs }) => {
+    const orig = window.fetch.bind(window);
+    window.fetch = async (input: any, init?: any) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.startsWith("https://api.anthropic.com/v1/messages") && init && typeof init.body === "string" && init.body.includes(match)) {
+        (window as any).__slowCalls = ((window as any).__slowCalls || 0) + 1;
+        const enc = new TextEncoder(); let i = 0;
+        const body = new ReadableStream({
+          start(ctrl) {
+            const tick = () => {
+              if (i >= pieces.length) { ctrl.enqueue(enc.encode('data: {"type":"message_stop"}\n\n')); ctrl.close(); return; }
+              ctrl.enqueue(enc.encode(`data: ${JSON.stringify({ type: "content_block_delta", delta: { type: "text_delta", text: pieces[i++] } })}\n\n`));
+              setTimeout(tick, everyMs);
+            };
+            tick();
+          },
+        });
+        return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+      }
+      return orig(input, init);
+    };
+  }, { match, pieces, everyMs });
+}
