@@ -1,4 +1,4 @@
-// Shared glossary for "회의 옆자리", stored in Netlify Blobs.
+// Shared glossary for "Jay" (회의 옆자리), stored in Netlify Blobs.
 // GET  /api/glossary  -> { text, updatedAt }
 // PUT  /api/glossary  { text } -> { text, updatedAt }
 // Every request must carry the passcode set in the site's environment variable SIDEKICK_PASSCODE

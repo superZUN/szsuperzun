@@ -1,4 +1,4 @@
-// Meeting-minutes library for "회의 옆자리", stored in Netlify Blobs.
+// Meeting-minutes library for "Jay" (회의 옆자리), stored in Netlify Blobs.
 // GET    /api/minutes          -> { items: [{ id, name, added, size, updatedAt }] }
 // GET    /api/minutes?id=ID    -> { id, name, text, added, updatedAt }
 // PUT    /api/minutes  { id, name, text, added } -> { id, updatedAt }

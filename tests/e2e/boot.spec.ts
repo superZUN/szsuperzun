@@ -4,7 +4,8 @@ import { mockAI, mockWiki } from "../harness/ai-mock";
 
 test("앱이 오류 없이 뜬다", async ({ open }) => {
   const page = await open();
-  await expect(page).toHaveTitle("회의 옆자리");
+  await expect(page).toHaveTitle("Jay");
+  await expect(page.locator(".brand h1")).toHaveText("Jay");
   await expect(page.locator("#status")).toHaveText("STANDBY");
 });
 

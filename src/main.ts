@@ -1,4 +1,4 @@
-// 회의 옆자리 — boot. Modules set themselves up in this order; nothing runs at import time.
+// Jay (formerly 회의 옆자리) — boot. Modules set themselves up in this order; nothing runs at import time.
 import "./styles.css";
 import { $ } from "./util";
 import { S } from "./state";

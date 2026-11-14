@@ -1,4 +1,4 @@
-// To-do list for "회의 옆자리", stored in Netlify Blobs.
+// To-do list for "Jay" (회의 옆자리), stored in Netlify Blobs.
 // GET /api/tasks              -> { items: [...], updatedAt }
 // PUT /api/tasks { items }    -> { items: [...merged], updatedAt }
 // Items are merged by id; the copy with the newer updatedAt wins, so two devices editing different tasks never overwrite each other.
