@@ -189,6 +189,20 @@ test.describe("할 일 탭", () => {
     await expect(page.locator("#todoList .tswipe")).toHaveCount(1);
   });
 
+  test("✕ 한 번 누르면 바로 삭제(되돌리기 5초), 다른 할 일·편집 창은 그대로", async ({ open, page }) => {
+    await open({});
+    await page.click("#tabTodo");
+    for (const t of ["지울 일", "남길 일"]) { await page.fill("#todoInput", t); await page.press("#todoInput", "Enter"); }
+    await page.getByRole("button", { name: "삭제: 지울 일" }).click();
+    await expect(page.locator("#todoList .tswipe")).toHaveCount(1);
+    await expect(page.locator("#todoList")).toContainText("남길 일");
+    await expect(page.locator("#todoUndoMsg")).toHaveText("'지울 일' 삭제됨");
+    await expect(page.locator("#focusVeil")).toBeHidden();
+    await page.click("#todoUndoBtn");
+    await expect(page.locator("#todoList .tswipe")).toHaveCount(2);
+    expect(await app(page, "A.tasks.find(t => t.text === '지울 일').deleted")).toBe(false);
+  });
+
   test("두 기기가 서로 다른 할 일을 고쳐도 덮어쓰지 않음, 삭제도 전달", async ({ open, page, browser, ns }) => {
     await open({ storage: { "ms.passcode": "test-pass" } });
     await page.click("#tabTodo");

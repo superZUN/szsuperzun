@@ -69,7 +69,10 @@ function todoRow(t: Task) {
   main.append(tt, meta);
   if (t.result && openId !== t.id) { const r = document.createElement("span"); r.className = "tres"; r.textContent = "결과 · " + t.result; main.append(r); }
   main.addEventListener("click", () => { openId = openId === t.id ? null : t.id; renderTodo(); });
-  row.append(cb, main);
+  // one tap deletes (the 5-second 되돌리기 bar is the safety net)
+  const del = document.createElement("button"); del.type = "button"; del.className = "tdel"; del.textContent = "✕"; del.title = "삭제"; del.setAttribute("aria-label", "삭제: " + t.text);
+  del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t); });
+  row.append(cb, main, del);
   if (openId === t.id) {
     const ed = document.createElement("div"); ed.className = "tedit";
     const field = (label: string, key: keyof Task, ph: string, area?: boolean) => {
@@ -89,7 +92,7 @@ function todoRow(t: Task) {
 /** swipe a task sideways past a third of its width to delete it; vertical scrolling is left alone */
 function swipeToDelete(wrap: HTMLElement, row: HTMLElement, t: Task) {
   let sx = 0, sy = 0, dx = 0, id: number | null = null, on = false;
-  wrap.addEventListener("pointerdown", (e) => { if (e.button > 0 || (e.target as HTMLElement).closest("input,textarea,.tedit")) return; id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; on = false; });
+  wrap.addEventListener("pointerdown", (e) => { if (e.button > 0 || (e.target as HTMLElement).closest("input,textarea,.tedit,.tdel")) return; id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; on = false; });
   wrap.addEventListener("pointermove", (e) => {
     if (e.pointerId !== id) return; const mx = e.clientX - sx, my = e.clientY - sy;
     if (!on) { if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { id = null; return; } if (Math.abs(mx) < 10) return; on = true; try { wrap.setPointerCapture(id!); } catch { /* gone */ } row.style.transition = "none"; wrap.classList.add("swiping"); }
