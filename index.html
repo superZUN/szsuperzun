@@ -166,6 +166,7 @@ IR NG 개선 대책 15
         <input id="docSearch" placeholder="회의록 검색 — 제목이나 내용 (예: 납기, IR)" aria-label="회의록 검색">
         <div id="docList"></div>
         <div class="hint">☁ 표시는 서버에도 저장된 회의록입니다. 분석할 때는 관련 부분 일부만 AI로 전달됩니다.</div>
+        <div class="row"><span id="sumMsg" class="hint" style="flex:1">'대화 기록'은 하루 동안 들은 말이 날짜별로 쌓인 것이고, '하루 요약'은 다음 날 자동으로 만들어집니다.</span><button id="sumToday">오늘 요약 만들기</button></div>
       </div>
     </div>
   </section>
@@ -175,6 +176,7 @@ IR NG 개선 대책 15
       <div class="row tadd"><input id="todoInput" placeholder="할 일 추가 — 할 일 / 담당 / 기한 (예: 샘플 재측정 / 박지은 / 11/20)" aria-label="할 일 추가" enterkeyhint="done"><button id="todoAdd" class="primary">추가</button></div>
       <div class="row tbar"><div class="tfil" role="toolbar" aria-label="보기"><button id="todoF_open" aria-pressed="true">진행 중</button><button id="todoF_done" aria-pressed="false">완료</button><button id="todoF_all" aria-pressed="false">전체</button></div>
         <input id="todoSearch" type="search" placeholder="검색" aria-label="할 일 검색"></div>
+      <div id="todoDup" class="hint" aria-live="polite"></div>
       <div id="todoList" class="tlist"></div>
       <div id="todoUndo" class="tundo" hidden role="status"><span id="todoUndoMsg"></span><button id="todoUndoBtn">되돌리기</button></div>
       <div class="hint">체크하면 끝낸 일로 옮겨지고, 결과를 한 줄 적을 수 있습니다. 할 일을 누르면 결과·담당·기한을 고칠 수 있습니다. 회의 중 찾은 할 일도 자동으로 여기에 모입니다. <span id="todoSync"></span></div>
@@ -274,6 +276,14 @@ NSE = NextStar Energy
         <label class="f">하루 한도 — AI 호출 수 (비우면 한도 없음, 넘으면 자동으로 절약 모드)<input id="dailyLimit" type="number" min="0" step="50" inputmode="numeric" placeholder="예: 1500"></label>
         <div id="usageBox" class="usage mono" aria-live="polite"></div>
         <div class="hint">일상 대화에서는 분석을 두 배 드물게 합니다. Claude는 매번 같은 지시문·용어 사전 부분을 캐시해 입력 비용을 줄입니다. 토큰 수는 AI가 알려 준 값이 없으면 글자 수로 어림합니다.</div>
+      </div>
+      <div class="panel">
+        <h2>Memory<span>하루 기록과 학습</span></h2>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="dayLogOn" type="checkbox" style="width:auto;flex:none"> 하루 대화 기록 — 들은 말·메모·질문과 답을 날짜별 '대화 기록'으로 저장 (회의록 탭, 서버 암호가 있으면 서버에도)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="daySumOn" type="checkbox" style="width:auto;flex:none"> 하루 요약 자동 — 하루가 지나면 AI가 그날의 결정·약속·기억할 것을 요약 (하루 1번, 소액)</label>
+        <div class="row" style="margin-top:6px"><b style="flex:1;font-size:13.5px">학습한 용어 제안 <span id="learnCount" class="num"></span></b></div>
+        <div id="learnBox" class="learnbox"></div>
+        <div class="hint">자주 틀리게 받아써지는 말과 새로 나온 이름·용어를 모았습니다. '등록'을 누르면 용어 사전에 들어가 인식·교정·분석이 더 정확해집니다.</div>
       </div>
       <div class="panel">
         <h2>Audio<span>음성 인식 안내</span></h2>

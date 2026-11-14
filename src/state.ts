@@ -8,9 +8,17 @@ export interface CardImg { src?: string; full?: string; title?: string; credit?:
 export interface CardData {
   id: number; type: string; title: string; body: string; source: string; links: { t: string; u: string }[]; kw: string;
   img: CardImg | null; example?: boolean; time: string; deep?: boolean; dismissed?: boolean; bx?: number; by?: number; bpin?: boolean;
+  /** an action the AI found: shown as a card, added to 할 일 only when the user taps "할 일에 추가" */
+  act?: { text: string; owner: string; due: string; added?: boolean };
 }
 export interface Action { id: number; text: string; owner: string; due: string; src: string; at: number; taskId?: string }
-export interface Doc { id: string; name: string; text: string; added: number; synced?: boolean; status?: "pending" | "review" | "final"; issues?: string[]; replaces?: string | null }
+export interface Doc {
+  id: string; name: string; text: string; added: number; synced?: boolean; status?: "pending" | "review" | "final"; issues?: string[]; replaces?: string | null;
+  /** server time of the copy this device last sent or received; dirty = changed here since */
+  updatedAt?: number; dirty?: boolean;
+}
+/** day logs ("day-YYYY-MM-DD-<device>") and day summaries ("sum-YYYY-MM-DD") are recognised by their id */
+export const docKind = (d: { id: string }) => (d.id.startsWith("day-") ? "daylog" : d.id.startsWith("sum-") ? "daysum" : "doc");
 export interface QA { q: string; a: string; at: number; deep?: boolean }
 
 export const S = {

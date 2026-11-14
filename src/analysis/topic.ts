@@ -16,7 +16,7 @@ const UNIT_RE = /\d+(\.\d+)?\s*(%|퍼센트|프로|ah|mah|kwh|mm|㎜|v|볼트|�
 export function workScore(text: string) {
   const t = text.toLowerCase();
   let sc = Math.min(6, dictHits(t).length * 2) + Math.min(4, (text.match(WORK_RE) || []).length) + Math.min(2, (text.match(UNIT_RE) || []).length * 0.5);
-  if (index.chunks.length) { const r = retrieveScored(text, 1)[0]; if (r && r.s >= 6 && r.n >= 4) sc += 2; }
+  if (index.chunks.length) { const r = retrieveScored(text, 1, { skipToday: true })[0]; if (r && r.s >= 6 && r.n >= 4) sc += 2; }
   return sc;
 }
 const T = { log: [] as { at: number; s: number }[], ai: "", aiAt: 0, lastWorkAt: 0, manualUntil: 0 };

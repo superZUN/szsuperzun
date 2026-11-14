@@ -18,6 +18,8 @@ const str = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
 const clean = (t) => ({
   id: str(t.id, 80), text: str(t.text, 500), owner: str(t.owner, 80), due: str(t.due, 40), result: str(t.result, 1000), from: str(t.from, 200),
   done: !!t.done, doneAt: Number(t.doneAt) || 0, at: Number(t.at) || 0, updatedAt: Number(t.updatedAt) || 0, deleted: !!t.deleted,
+  // tasks the user said are different ("따로 두기"), and where a merged task went
+  apart: Array.isArray(t.apart) ? t.apart.filter((x) => typeof x === "string").map((x) => x.slice(0, 80)).slice(0, 50) : [], mergedInto: str(t.mergedInto, 80),
 });
 
 export default async (req) => {

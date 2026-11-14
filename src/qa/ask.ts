@@ -14,6 +14,7 @@ import { reconcileManual, userFocusBlock } from "../transcript";
 import { bestSentence } from "../analysis/keywords";
 import { routeVisual, showVisual, visSubject } from "./visual";
 import { isRepeat, deepAsk, PAST_Q, DEEP_MARK } from "./deep";
+import { logLine } from "../memory/daylog";
 
 const Q_STOP = new Set(["아까", "방금", "그거", "이거", "저거", "뭐라", "라고", "했지", "했었", "었지", "는데", "그럼", "얼마", "언제", "어떻", "떻게", "뭐였", "였지", "무슨", "누가", "어디"]);
 /** question tokens: Korean bigrams (minus question filler) + Latin words of 2+ letters, so short codes like IR / NG count */
@@ -98,7 +99,7 @@ export async function ask(qIn?: string) {
     if (t) { onText(t + "\n"); node.setBody(withLead(body(t) || "그림으로 보여 드립니다.")); }
     // the quick answer says the material was not enough: widen the search on the same card
     if (t && DEEP_MARK.test(t)) { DEEP_MARK.lastIndex = 0; await deepAsk(q, node, { reason: "빠른 답에 필요한 내용이 없어서", tail, canSearch }); return; }
-    DEEP_MARK.lastIndex = 0; S.qaLog.push({ q, a: body(t || ""), at: Date.now() });
+    DEEP_MARK.lastIndex = 0; S.qaLog.push({ q, a: body(t || ""), at: Date.now() }); logLine(q, "질문"); logLine(body(t || "").slice(0, 400), "답");
   } catch (e: any) { node.setBody((e && e.text && body(e.text)) || errText(e)); }
 }
 export function initAsk() {

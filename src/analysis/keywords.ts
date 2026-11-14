@@ -9,7 +9,7 @@ import { ai, canWebSearch, searchCall, errText } from "../ai/client";
 import { keywordSearchPrompt } from "../ai/prompts";
 import { overLimit } from "../ai/usage";
 import { dictHits, shortName, type Term } from "../library/dict";
-import { index, retrieveScored } from "../library/docs";
+import { index, retrieveScored, recallSource, type Chunk } from "../library/docs";
 import { addNode, linkList, visFill, closeFocus, setFocusItem } from "../hud/cards";
 import { makeDiagram, showPhoto } from "../qa/visual";
 import { qTokens } from "../qa/ask";
@@ -31,10 +31,10 @@ export function bestSentence(chunkText: string, query: string) {
   return best.length > 170 ? best.slice(0, 168) + "…" : best;
 }
 export function showDef(x: Term, kw: string) { addNode({ type: "term", title: x.t + (x.e && x.e !== x.t && x.e.length < 40 ? " · " + x.e : ""), body: x.d + (x.n ? " — " + x.n : ""), source: "용어 사전", kw }); }
-export function showRecall(c: { doc: string; text: string }, text: string, kw: string) {
+export function showRecall(c: Chunk, text: string, kw: string) {
   const sent = bestSentence(c.text, text); if (!sent) return null; const key = c.doc + "|" + sent.slice(0, 40);
   if (recallSeen.has(key) && Date.now() - recallSeen.get(key)! < 15 * 60000) return null; recallSeen.set(key, Date.now());
-  addNode({ type: "past", title: c.doc, body: sent, source: "지난 회의록", kw }); return { doc: c.doc, text: sent };
+  addNode({ type: "past", title: c.doc, body: sent, source: recallSource(c), kw }); return { doc: c.doc, text: sent };
 }
 export function instantScan(text: string) {
   if (!cfg.instantOn || !text) return; const c = text.toLowerCase(); let defShown = false;
@@ -42,7 +42,7 @@ export function instantScan(text: string) {
   // everyday talk: only clear technical talk (two terms, or an English term said as such) counts
   if (dailyTalk() && all.length < 2 && !(all[0] && /^[\x00-\x7f]+$/.test(all[0].e || "") && c.includes(String(all[0].e || "").toLowerCase().split(/[\s(/,]/)[0]))) all.length = 0;
   for (const x of all.slice(0, 3)) { const e = addKeyword(shortName(x), "dict", text, x); if (e && e.isNew && !defShown) { showDef(x, e.k); defShown = true; } }
-  if (index.chunks.length) { const r = retrieveScored(text, 1)[0]; const d = dailyTalk(); if (r && r.n >= (d ? 6 : 4) && r.s >= (d ? 8 : 4)) showRecall(r.c, text, ""); }
+  if (index.chunks.length) { const r = retrieveScored(text, 1, { skipToday: true })[0]; const d = dailyTalk(); if (r && r.n >= (d ? 6 : 4) && r.s >= (d ? 8 : 4)) showRecall(r.c, text, ""); }
 }
 let lastInterimScan = 0;
 export function instantScanSoon(t: string) { const now = Date.now(); if (now - lastInterimScan < 700) return; lastInterimScan = now; instantScan(t); }
@@ -57,7 +57,7 @@ export function addKeyword(k: string, origin: string, ctx: string, dict?: Term):
 async function lookupKeyword(e: KW) {
   const d = dictHits(e.k.toLowerCase())[0];
   if (d && !e.def) { e.def = d; if (![...kwMap.values()].some((o) => o !== e && o.def === d)) showDef(d, e.k); }
-  if (!e.def && index.chunks.length) { const r = retrieveScored(e.k + " " + e.ctx.slice(-80), 1)[0]; if (r && r.n >= (dailyTalk() ? 5 : 3)) { const rc = showRecall(r.c, e.k + " " + e.ctx.slice(-80), e.k); if (rc) e.recall = rc; } }
+  if (!e.def && index.chunks.length) { const r = retrieveScored(e.k + " " + e.ctx.slice(-80), 1, { skipToday: true })[0]; if (r && r.n >= (dailyTalk() ? 5 : 3)) { const rc = showRecall(r.c, e.k + " " + e.ctx.slice(-80), e.k); if (rc) e.recall = rc; } }
   if (e.def) return; // dictionary terms are already explained
   if (cfg.wikiOn) void wikiLookup(e);
   if (webAllowed()) queueWeb(e);

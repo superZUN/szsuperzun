@@ -1,6 +1,6 @@
 // 회의록 tab: upload / paste, the list (with 준비중 · 검토 필요 badges, search, two-step delete), and the reader.
 import { $, armButton, download, fileSafe } from "../util";
-import { S, type Doc } from "../state";
+import { S, type Doc, docKind } from "../state";
 import { readFile } from "./import";
 import { putDoc, delDoc, rebuildIndex, syncDocsNow, isFinal } from "./docs";
 import { mdToHtml } from "../minutes/md";
@@ -15,6 +15,7 @@ export function renderDocs() {
     const row = document.createElement("div"); row.className = "doc"; row.dataset.id = d.id;
     const n = document.createElement("button"); n.className = "name"; n.textContent = (d.synced ? "☁ " : "") + d.name;
     if (!isFinal(d)) { const bd = document.createElement("span"); bd.className = "dbadge" + (d.status === "review" ? " review" : ""); bd.textContent = d.status === "review" ? "검토 필요" : "준비중"; n.prepend(bd); }
+    const k = docKind(d); if (k !== "doc") { const kb = document.createElement("span"); kb.className = "dkind"; kb.textContent = k === "daylog" ? "대화 기록" : "하루 요약"; n.prepend(kb); }
     n.title = "열어 보기"; n.addEventListener("click", () => openDoc(d));
     const s = document.createElement("div"); s.className = "size"; s.textContent = new Date(d.added).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }) + " · " + d.text.length.toLocaleString() + "자";
     const v = document.createElement("button"); v.textContent = "보기"; v.addEventListener("click", () => openDoc(d));

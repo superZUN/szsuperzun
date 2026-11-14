@@ -10,7 +10,7 @@ import { cfg } from "../settings/settings";
 import { addNode } from "../hud/cards";
 import { retrieveScored } from "../library/docs";
 import { meetingBlock } from "../meeting/prep";
-import { addAction, actionLine } from "../meeting/actions";
+import { actionLine, sameAction } from "../meeting/actions";
 import { reconcileManual, userFocusBlock } from "../transcript";
 import { addKeyword } from "./keywords";
 import { aiTopic } from "./topic";
@@ -32,7 +32,7 @@ export async function analyze(force: boolean) {
   if (!force && fresh.length < pace().minChars) return; if (!(full + fresh).trim()) return;
   S.busy = true; S.pending = false; setStatus(); S.lastCallAt = Date.now(); const sentCount = S.segs.length;
   const recent = (full + " " + (S.curInterim || "")).trim().slice(-900), conv = S.appMode === "conv", daily = conv && !S.convWork, work = conv && S.convWork;
-  const past = retrieveScored((fresh || recent).slice(-500), 2).filter((x) => (daily ? x.s >= 6 && x.n >= 4 : x.s > 2)).map((x) => "<<" + x.c.doc + ">>\n" + x.c.text.slice(0, 450)).join("\n---\n");
+  const past = retrieveScored((fresh || recent).slice(-500), 2, { skipToday: true }).filter((x) => (daily ? x.s >= 6 && x.n >= 4 : x.s > 2)).map((x) => "<<" + x.c.doc + ">>\n" + x.c.text.slice(0, 450)).join("\n---\n");
   const { system, prompt } = analyzePrompt({ conv, daily, work, meetingType: $("mode").value, visAuto: visAuto(), fresh, recent, past, shown: S.shownTitles, meetingBlock: conv ? "" : meetingBlock(), focusBlock: userFocusBlock() });
   let added = 0;
   const emit = (t: string) => {
@@ -48,7 +48,12 @@ export async function analyze(force: boolean) {
         if (!visAuto() || !c.title) continue; S.visLast = Date.now(); const k = routeVisual(c.title + " " + (c.body || "")) || "diagram";
         showVisual(k === "photo" ? "photo" : k, k === "photo" ? c.title : c.title + (c.body ? " — " + c.body : ""), recent, { title: c.title }); S.shownTitles.push(c.title); continue;
       }
-      if (c.type === "action") { if (daily) continue; const a = addAction({ text: c.title || c.body, owner: c.owner || "", due: c.due || "", src: "ai" }); if (!a) continue; addNode({ type: "action", title: a.text, body: actionLine(a) }); }
+      if (c.type === "action") { // changed: only a card; it goes to 할 일 when the user taps "할 일에 추가"
+        if (daily) continue; const text = String(c.title || c.body || "").trim(); if (!text) continue;
+        if (S.actions.some((a) => sameAction(a.text, text)) || S.history.some((d) => d.act && sameAction(d.act.text, text))) continue;
+        const act = { text, owner: String(c.owner || "").trim(), due: String(c.due || "").trim() };
+        addNode({ type: "action", title: text, body: actionLine(act) + "\n눌러서 '할 일에 추가'", act });
+      }
       else { if (!c.body) continue; addNode(c); }
       S.shownTitles.push(c.title || c.body.slice(0, 20));
     }

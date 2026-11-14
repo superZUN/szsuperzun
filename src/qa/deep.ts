@@ -13,6 +13,7 @@ import { wake } from "../hud/field";
 import { setStatus } from "../controls";
 import { bestSentence } from "../analysis/keywords";
 import { qTokens, withLead } from "./ask";
+import { logLine } from "../memory/daylog";
 
 export const PAST_Q = /아까|전에|지난|저번|예전|회의|미팅|했었|했지|했나|했더라|뭐였|뭐라고|말했|얘기했|이야기했|결정|합의|정했|언제였|누가.*(하기로|맡)|어떻게\s*하기로|정리|모아|전부|다\s*찾아/;
 export const DEEP_MARK = /⟪\s*더\s*찾기\s*⟫/g;
@@ -62,7 +63,7 @@ export async function deepAsk(q: string, node: NodeHandle, { reason, tail, canSe
       catch (e: any) { if (e && (e.code === "http" || e.code === "bad_model") && /search|tool/i.test(e.message || "")) t = await aiCall(prompt, { maxTokens: 1200, onText, kind: "deep" }); else throw e; }
     } else t = await aiCall(prompt, { maxTokens: 1200, onText, kind: "deep" });
     t = (t || "").replace(DEEP_MARK, "").trim(); node.setBody(head + withLead(t)); if (links.length) node.setLinks(links);
-    S.qaLog.push({ q, a: t, at: Date.now(), deep: true });
+    S.qaLog.push({ q, a: t, at: Date.now(), deep: true }); logLine(q, "질문"); logLine(t.slice(0, 400), "답");
   } catch (e: any) { node.setBody((e && e.text) || errText(e)); }
   deepOn(node, false);
 }

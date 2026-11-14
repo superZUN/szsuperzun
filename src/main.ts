@@ -30,6 +30,9 @@ import { initTasks } from "./tasks/tasks";
 import { initSession, restoreSession, initialSnapshot } from "./meeting/session";
 import { initControls, setStatus, showTab } from "./controls";
 import { ai } from "./ai/client";
+import { initDayLog, flushLog, LOG_TIMING } from "./memory/daylog";
+import { initSummary, catchUp } from "./memory/summary";
+import { renderLearn } from "./memory/learn";
 import { cfg } from "./settings/settings";
 import { usage } from "./ai/usage";
 import { micCheckTiming } from "./speech/miccheck";
@@ -51,6 +54,7 @@ initTranscriptUI(() => scheduleAnalyze());
 initRecognizer(); initGauge(); initMicCheck(); initStandby();
 initTopic(); initAnalyzeTicker(); initKeywords(); initAsk(); preloadMermaid();
 initMinutesUI(); initPrep(() => showTab("tabPrep")); initActions(); initCarry(); initTasks(); initSession();
+initDayLog(); initSummary(); renderLearn();
 
 setStatus(); refreshNote(); updateFixStat();
 const restored = restoreSession(); renderAgBar(); updatePrepCount(); renderActions(); initialSnapshot();
@@ -60,8 +64,8 @@ if (!restored) [
   { type: "info", title: "'지난번 수준' = 수율 96.5%", body: "상대가 말한 '지난번 얘기한 수준'은 10/14 회의에서 합의한 Formation 수율 96.5%입니다." },
 ].reverse().forEach((x, i) => setTimeout(() => { if (!S.history.length) addNode(x, { example: true }); }, 400 + i * 500));
 if (!ai.apiKey) showTab("tabSet");
-void openDB().then(loadDocs).then((d) => { S.docs = d; markInterrupted(); rebuildIndex(); void syncDocsNow(false); document.documentElement.dataset.docs = "1"; });
+void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); });
 /** read-only window into the app for the automated tests (and for debugging in the console) */
-(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M };
+(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp };
 document.documentElement.dataset.ready = "1";
 void $;

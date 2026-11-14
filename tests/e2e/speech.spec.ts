@@ -94,21 +94,18 @@ test.describe("음성 인식", () => {
   });
 
   test("소리는 들리는데 글자가 없으면 재시작, 두 번 소용없으면 쉼", async ({ open, page }) => {
-    await page.clock.install();
+    test.setTimeout(60000); // real time: the audio analyser cannot follow a fake clock
     await open({});
-    await page.click("#startBtn"); await page.clock.runFor(200);
+    await startListening(page);
     await expect.poll(() => app(page, "!!A.vad.timer")).toBe(true);
     // someone talking (with the short pauses real speech has), but the recogniser returns nothing
-    const talk = async (ms: number) => { for (let t = 0; t < ms; t += 1000) { await ev(page, "window.__mic.set({ voice: 1 })"); await page.clock.runFor(800); await ev(page, "window.__mic.set({ voice: 0 })"); await page.clock.runFor(200); } };
-    await talk(3000);
-    await expect(page.locator("#recState")).toHaveText("소리는 들리는데 글자가 안 나옴");
-    await talk(1000);
-    expect((await counts(page)).instances).toBe(2);
-    await talk(8000);
+    await ev(page, "window.__talk = setInterval(() => { window.__mic.set({ voice: 0 }); setTimeout(() => window.__mic.set({ voice: 1 }), 300); }, 2500); window.__mic.set({ voice: 1 })");
+    await expect(page.locator("#recState")).toHaveText("소리는 들리는데 글자가 안 나옴", { timeout: 5000 });
+    await expect.poll(async () => (await counts(page)).instances, { timeout: 6000 }).toBe(2);   // 1st restart after 3 s of speech without words
+    await expect.poll(async () => (await counts(page)).instances, { timeout: 12000 }).toBe(3);  // 2nd one at least 8 s later
+    await expect.poll(() => app(page, "A.vad.pauseUntil > Date.now()"), { timeout: 12000 }).toBe(true); // the third time it rests
     expect((await counts(page)).instances).toBe(3);
-    await talk(9000); // the third time it rests instead of restarting
-    expect(await app(page, "A.vad.pauseUntil > Date.now()")).toBe(true);
-    expect((await counts(page)).instances).toBe(3);
+    await ev(page, "clearInterval(window.__talk)");
   });
 
   test("처음부터 마이크 거부면 멈추고 안내", async ({ open, page }) => {

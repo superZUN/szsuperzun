@@ -23,6 +23,8 @@ export const cfg = {
   pace: ((): Pace => { const v = ls.get("ms.pace"); return v === "fast" || v === "save" ? v : "balanced"; })(),
   dailyLimit: Math.max(0, Number(ls.get("ms.dailyLimit")) || 0),
   micHintOff: ls.get("ms.micHintOff") === "1",
+  dayLogOn: ls.get("ms.dayLogOff") !== "1",
+  daySumOn: ls.get("ms.daySumOff") !== "1",
 };
 
 /** analysis pacing: how long to wait after speech stops, the minimum gap between calls, how much new text, and a forced interval */
@@ -56,6 +58,8 @@ export function initSettingsUI() {
   bindCheck("wikiOn", "wikiOn", "ms.wikiOff", false);
   bindCheck("visOn", "visOn", "ms.visOff", false);
   bindCheck("allDay", "allDay", "ms.allDay", true);
+  bindCheck("dayLogOn", "dayLogOn", "ms.dayLogOff", false);
+  bindCheck("daySumOn", "daySumOn", "ms.daySumOff", false);
   const wm = $("webMode"); wm.value = cfg.webMode;
   wm.addEventListener("change", () => { cfg.webMode = wm.value; ls.set("ms.webMode", wm.value); changed(); });
   const pw = $("powerMode"); pw.value = cfg.power;

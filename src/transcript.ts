@@ -12,6 +12,8 @@ import { analyze } from "./analysis/analyze";
 import { updateEndBar } from "./minutes/minutes";
 import { agLogForAnnotate } from "./meeting/session";
 import { live } from "./speech/recognizer";
+import { logSeg, logLine } from "./memory/daylog";
+import { recordFix } from "./memory/learn";
 
 export const HL_BEFORE = 30000, HL_AFTER = 30000; // a highlight covers 30 s before and after the tap
 let taShown = "", taDirty = false, fixing = false, fixTimer: any = null, lastSel = "";
@@ -39,7 +41,7 @@ export function reconcileManual() {
 }
 export function resetTranscriptView() { taShown = ""; lastFinalSeg = null; $("transcript").value = ""; }
 export function addUtterance(t: string) {
-  const s: Seg = { raw: t, fix: fixActive() ? null : t, at: Date.now() }; S.segs.push(s); lastFinalSeg = s; renderTranscript(); queueFix(); return s;
+  const s: Seg = { raw: t, fix: fixActive() ? null : t, at: Date.now() }; S.segs.push(s); lastFinalSeg = s; logSeg(s); renderTranscript(); queueFix(); return s;
 }
 
 /* ---------- memo + highlight ---------- */
@@ -47,11 +49,11 @@ export function spanText(t0: number, t1: number, max?: number) { const s = S.seg
 export function addMemo() {
   const inp = $("memoInput"), text = inp.value.trim(); if (!text) return;
   inp.value = ""; if (!S.meetingStart) S.meetingStart = Date.now();
-  S.notes.push({ at: Date.now(), text }); addNode({ type: "note", title: "", body: text }); updateEndBar(); inp.focus();
+  S.notes.push({ at: Date.now(), text }); logLine(text, "메모"); addNode({ type: "note", title: "", body: text }); updateEndBar(); inp.focus();
 }
 export function markNow() {
   const at = Date.now(); if (!S.meetingStart) S.meetingStart = at;
-  const m: any = { at }; S.marks.push(m); S.markFlash = performance.now();
+  const m: any = { at }; S.marks.push(m); S.markFlash = performance.now(); logLine("★ 중요 표시", "메모", at);
   const b = $("markNow"); b.classList.add("flash"); setTimeout(() => b.classList.remove("flash"), 500); $("markCount").textContent = S.marks.length;
   const before = spanText(at - HL_BEFORE, at, 140);
   const node = addNode({ type: "mark", title: "중요 표시 · " + hhmm(at), body: (before ? "앞: " + before + "\n" : "") + "뒤 30초 대화도 함께 중요 내용으로 기록 중…" });
@@ -109,7 +111,7 @@ async function runFix() {
     const t = await aiCall(prompt, { system, maxTokens: 900, kind: "fix" }); const a = t.indexOf("["), b = t.lastIndexOf("]");
     if (a >= 0 && b > a) { const v = JSON.parse(t.slice(a, b + 1)); if (Array.isArray(v) && v.length === batch.length) arr = v; }
   } catch (e: any) { limited = e && e.code === "rate_limited"; }
-  batch.forEach((s, i) => { const v = arr && typeof arr[i] === "string" ? arr[i].trim() : ""; s.fix = plausible(v, s.raw) ? v : s.raw; s.busy = false; });
+  batch.forEach((s, i) => { const v = arr && typeof arr[i] === "string" ? arr[i].trim() : ""; s.fix = plausible(v, s.raw) ? v : s.raw; s.busy = false; if (s.fix !== s.raw) recordFix(s.raw, s.fix); });
   fixing = false; renderTranscript();
   if (lastFinalSeg && batch.includes(lastFinalSeg)) live.showFixed(lastFinalSeg);
   if (limited) setTimeout(queueFix, 15000); else queueFix();

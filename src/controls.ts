@@ -18,6 +18,7 @@ import { updateFixStat } from "./transcript";
 import { rs, startRec, stopRec, speechSupported, setMicFailHandler } from "./speech/recognizer";
 import { vadStart, vadStop, renderGauge } from "./speech/gauge";
 import { holdScreen, releaseScreen } from "./power/standby";
+import { renderLearn } from "./memory/learn";
 
 export function setStatus() {
   const s = $("status"); s.className = "status" + (S.busy ? " busy" : S.running ? " on" : "");
@@ -41,7 +42,7 @@ export async function toggle() {
 const TABS: Record<string, string> = { tabLive: "liveView", tabPrep: "prepView", tabKb: "kbView", tabTodo: "todoView", tabSet: "setView" };
 export function showTab(id: string) {
   Object.entries(TABS).forEach(([t, v]) => { $(v).hidden = t !== id; $(t).setAttribute("aria-selected", String(t === id)); });
-  if (id === "tabPrep") renderCarry(); if (id === "tabTodo") { renderTodo(); void pullTasks(); } if (id === "tabKb" && Date.now() - lastSync > 20000) void syncDocsNow(false); if (id === "tabSet") renderUsage();
+  if (id === "tabPrep") renderCarry(); if (id === "tabTodo") { renderTodo(); void pullTasks(); } if (id === "tabKb" && Date.now() - lastSync > 20000) void syncDocsNow(false); if (id === "tabSet") { renderUsage(); renderLearn(); }
 }
 function setInMode(m: "memo" | "ask" | "act") {
   ([["memo", "modeMemo", "memoInput", "memoAdd"], ["ask", "modeAsk", "askInput", "askBtn"], ["act", "modeAct", "actInput", "actAdd"]] as const).forEach(([k, t, i, b]) => { const on = k === m; $(t).setAttribute("aria-selected", String(on)); $(i).hidden = !on; $(b).hidden = !on; });
@@ -98,7 +99,7 @@ function dictUI(on: string, count: string, show: string, list: string, arr: Term
 /* ---------- cost panel ---------- */
 export function renderUsage() {
   const box = $("usageBox"); if (!box) return; const u = usage(); const k = (n: number) => (n >= 10000 ? (n / 1000).toFixed(0) + "k" : n.toLocaleString());
-  const kinds = Object.entries(u.byKind).sort((a, b) => b[1] - a[1]).map(([n, c]) => ({ analyze: "분석", fix: "교정", ask: "질문", deep: "넓게 찾기", visual: "그림", kwweb: "키워드 검색", minutes: "회의록", check: "점검", mail: "메일", test: "연결 확인", other: "기타" } as any)[n] + " " + c).join(" · ");
+  const kinds = Object.entries(u.byKind).sort((a, b) => b[1] - a[1]).map(([n, c]) => ({ analyze: "분석", fix: "교정", ask: "질문", deep: "넓게 찾기", visual: "그림", kwweb: "키워드 검색", minutes: "회의록", check: "점검", mail: "메일", test: "연결 확인", daysum: "하루 요약", other: "기타" } as any)[n] + " " + c).join(" · ");
   box.innerHTML = "";
   const line = (t: string, cls = "") => { const d = document.createElement("div"); d.textContent = t; if (cls) d.className = cls; box.append(d); };
   line(`오늘 AI 호출 ${u.calls.toLocaleString()}회${cfg.dailyLimit ? ` / 한도 ${cfg.dailyLimit.toLocaleString()}` : ""} · 웹 검색 ${u.web}회`, overLimit() ? "over" : "");

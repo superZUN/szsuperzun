@@ -346,3 +346,11 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0s!important;animation-iteration-count:1!important;transition-duration:0s!important;scroll-behavior:auto!important}}
 .tdel{flex:none;width:40px;height:40px;margin:-8px -2px -8px 0;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:none;border:0;clip-path:none}
 .tdel:hover,.tdel:focus-visible{color:#FF7A9A;background:rgba(255,122,154,.08)}
+.learnbox{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.lrow{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.lrow .ltext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lrow .ltext b{font-weight:500;overflow-wrap:anywhere}
+.dkind{display:inline-block;font-size:10.5px;letter-spacing:.04em;padding:1px 6px;margin-right:6px;border:1px solid rgba(111,231,255,.35);color:var(--cy)}
+.tgroup{border:1px solid rgba(255,181,71,.45);background:rgba(255,181,71,.04);margin:8px 0;padding:2px 8px 4px}
+.tghd{display:flex;gap:8px;align-items:center;padding:6px 0 4px;color:var(--amber);font-size:12.5px}
+.tghd span{flex:1}

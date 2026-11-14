@@ -1,13 +1,13 @@
 // 할 일 tab: every task from every meeting plus ones added by hand. Filters, search, due tags (지남 red, D-n ≤ 3 days amber),
 // tick → a one-line result field opens in place, tap → edit, swipe ⅓ of the width to delete (5 s undo).
 // Stored in localStorage (ms.tasks) and, with a passcode, /api/tasks (merged per task by updatedAt; deletions as tombstones).
-import { $, hhmm } from "../util";
+import { $, hhmm, simText } from "../util";
 import { ls } from "../storage/ls";
 import { server, serverApi } from "../storage/server";
 import { sameAction, splitSlash } from "../meeting/actions";
 import { carry, saveCarry, renderCarry, stripCarry } from "../meeting/carry";
 
-export interface Task { id: string; text: string; owner: string; due: string; result: string; from: string; done: boolean; doneAt: number; at: number; updatedAt: number; deleted?: boolean }
+export interface Task { id: string; text: string; owner: string; due: string; result: string; from: string; done: boolean; doneAt: number; at: number; updatedAt: number; deleted?: boolean; apart?: string[]; mergedInto?: string }
 export const tasks: Task[] = (() => { const t = ls.json<any>("ms.tasks", []); return Array.isArray(t) ? t : []; })();
 let filter: "open" | "done" | "all" = "open", openId: string | null = null, pushT: any = 0, syncing = false;
 export const liveTasks = () => tasks.filter((t) => !t.deleted);
@@ -16,7 +16,8 @@ export const touch = (t: Task) => { t.updatedAt = Date.now(); };
 const todoVisible = () => !$("todoView").hidden;
 export function addTask(a: { text: string; owner?: string; due?: string; from?: string }): Task | null {
   const text = (a.text || "").trim(); if (!text) return null;
-  const ex = liveTasks().find((t) => !t.done && sameAction(t.text, text));
+  const owner = (a.owner || "").trim(); // the same words for two different people are two tasks
+  const ex = liveTasks().find((t) => !t.done && sameAction(t.text, text) && !(t.owner && owner && t.owner !== owner));
   if (ex) { let ch = false; if (!ex.owner && a.owner) { ex.owner = a.owner; ch = true; } if (!ex.due && a.due) { ex.due = a.due; ch = true; } if (ch) { touch(ex); saveTasks(); } return ex; }
   const t: Task = { id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, owner: (a.owner || "").trim(), due: (a.due || "").trim(), result: "", from: a.from || "", done: false, doneAt: 0, at: Date.now(), updatedAt: Date.now() };
   tasks.push(t); saveTasks(); if (todoVisible()) renderTodo(); return t;
@@ -50,8 +51,57 @@ export function renderTodo() {
   const box = $("todoList"); box.textContent = ""; const L = liveTasks();
   ([["open", "진행 중", L.filter((t) => !t.done).length], ["done", "완료", L.filter((t) => t.done).length], ["all", "전체", L.length]] as const).forEach(([k, l, n]) => { const b = $("todoF_" + k); b.textContent = `${l} ${n}`; b.setAttribute("aria-pressed", String(filter === k)); });
   const list = sortedTasks();
+  const groups = similarGroups(list.filter((t) => !t.done)); const inGroup = new Map<string, Task[]>(); groups.forEach((g) => g.forEach((t) => inGroup.set(t.id, g)));
+  $("todoDup").textContent = groups.length ? `비슷한 할 일 묶음 ${groups.length}개` : "";
   if (!list.length) { const p = document.createElement("div"); p.className = "note"; p.textContent = filter === "done" ? "아직 끝낸 일이 없습니다." : L.length ? "맞는 할 일이 없습니다." : "할 일이 없습니다. 위에서 추가하거나, 회의 중 AI가 찾은 할 일이 여기로 모입니다."; box.append(p); return; }
-  list.forEach((t) => box.append(todoRow(t)));
+  const drawn = new Set<Task[]>();
+  list.forEach((t) => {
+    const g = inGroup.get(t.id);
+    if (!g) { box.append(todoRow(t)); return; }
+    if (drawn.has(g)) return; drawn.add(g); box.append(groupBox(g));
+  });
+}
+/* ---------- similar tasks: shown together, merged on request ---------- */
+const normT = (s: string) => s.toLowerCase().replace(/[\s.,·~\-_/()'"!?]/g, "");
+/** the same task in other words: one contains the other, or most of the wording overlaps; different owners are never the same */
+export function similarTasks(a: Task, b: Task) {
+  if ((a.apart || []).includes(b.id) || (b.apart || []).includes(a.id)) return false;
+  if (a.owner && b.owner && normT(a.owner) !== normT(b.owner)) return false;
+  if (sameAction(a.text, b.text)) return true;
+  const x = normT(a.text), y = normT(b.text); if (x.length < 4 || y.length < 4) return false;
+  return simText(x, y) >= 0.6 && Math.min(x.length, y.length) / Math.max(x.length, y.length) >= 0.4;
+}
+export function similarGroups(open: Task[]): Task[][] {
+  const parent = new Map(open.map((t) => [t.id, t.id])); const find = (i: string): string => { while (parent.get(i) !== i) i = parent.get(i)!; return i; };
+  for (let i = 0; i < open.length; i++) for (let j = i + 1; j < open.length; j++) if (similarTasks(open[i], open[j])) parent.set(find(open[j].id), find(open[i].id));
+  const by = new Map<string, Task[]>(); open.forEach((t) => { const r = find(t.id); by.set(r, [...(by.get(r) || []), t]); });
+  return [...by.values()].filter((g) => g.length > 1);
+}
+function groupBox(g: Task[]) {
+  const box = document.createElement("div"); box.className = "tgroup";
+  const hd = document.createElement("div"); hd.className = "tghd";
+  const lb = document.createElement("span"); lb.textContent = `비슷한 할 일 ${g.length}개`;
+  const merge = document.createElement("button"); merge.className = "primary"; merge.textContent = "합치기"; merge.addEventListener("click", () => mergeSimilar(g));
+  const apart = document.createElement("button"); apart.textContent = "따로 두기"; apart.addEventListener("click", () => keepApart(g));
+  hd.append(lb, merge, apart); box.append(hd); g.forEach((t) => box.append(todoRow(t))); return box;
+}
+/** one task keeps its id (the oldest); it takes the most detailed wording, the first owner, the earliest due date, all results */
+export function mergeSimilar(g: Task[]) {
+  const before = g.map((t) => ({ t, before: { ...t } }));
+  const keep = [...g].sort((a, b) => a.at - b.at)[0], others = g.filter((t) => t !== keep);
+  keep.text = [...g].sort((a, b) => b.text.length - a.text.length)[0].text;
+  keep.owner = keep.owner || g.map((t) => t.owner).find(Boolean) || "";
+  const dues = g.map((t) => t.due).filter(Boolean); keep.due = dues.sort((a, b) => (parseDue(a)?.getTime() ?? 9e15) - (parseDue(b)?.getTime() ?? 9e15))[0] || "";
+  keep.result = [...new Set(g.map((t) => t.result).filter(Boolean))].join(" / ");
+  keep.from = [...new Set(g.flatMap((t) => (t.from || "").split(" · ")).filter(Boolean))].join(" · ");
+  touch(keep);
+  others.forEach((t) => { Object.assign(t, { deleted: true, mergedInto: keep.id }); touch(t); });
+  saveTasks(); renderTodo();
+  showUndo(`${g.length}개를 '${keep.text.slice(0, 20)}${keep.text.length > 20 ? "…" : ""}'로 합침`, () => { before.forEach(({ t, before: b }) => { Object.assign(t, b, { deleted: !!b.deleted }); touch(t); }); });
+}
+function keepApart(g: Task[]) {
+  g.forEach((t) => { t.apart = [...new Set([...(t.apart || []), ...g.filter((x) => x !== t).map((x) => x.id)])].slice(-50); touch(t); });
+  saveTasks(); renderTodo();
 }
 function todoRow(t: Task) {
   const wrap = document.createElement("div"); wrap.className = "tswipe"; wrap.dataset.id = t.id; const back = document.createElement("div"); back.className = "tback"; back.textContent = "삭제";
@@ -106,11 +156,14 @@ function swipeToDelete(wrap: HTMLElement, row: HTMLElement, t: Task) {
   wrap.addEventListener("pointerup", end); wrap.addEventListener("pointercancel", end);
   wrap.addEventListener("click", (e) => { if ((wrap as any)._swiped && Date.now() - (wrap as any)._swiped < 350) { e.stopPropagation(); e.preventDefault(); } }, true); // a swipe is not a tap
 }
-let undoT: any = 0, undoTask: { t: Task; before: Task } | null = null;
+let undoT: any = 0, undoFn: (() => void) | null = null;
+function showUndo(msg: string, fn: () => void) {
+  undoFn = fn; const bar = $("todoUndo"); $("todoUndoMsg").textContent = msg; bar.hidden = false;
+  clearTimeout(undoT); undoT = setTimeout(() => { bar.hidden = true; undoFn = null; }, 5000);
+}
 export function deleteTask(t: Task) {
   const before = { ...t }; Object.assign(t, { deleted: true }); touch(t); if (openId === t.id) openId = null; saveTasks(); renderTodo();
-  undoTask = { t, before }; const bar = $("todoUndo"); $("todoUndoMsg").textContent = `'${before.text.slice(0, 24)}${before.text.length > 24 ? "…" : ""}' 삭제됨`; bar.hidden = false;
-  clearTimeout(undoT); undoT = setTimeout(() => { bar.hidden = true; undoTask = null; }, 5000);
+  showUndo(`'${before.text.slice(0, 24)}${before.text.length > 24 ? "…" : ""}' 삭제됨`, () => { Object.assign(t, before, { deleted: false }); touch(t); });
 }
 /** a task ticked here also ticks the matching item in the next-meeting check list (and the other way round, in carry.ts) */
 function syncCarryDone(t: Task) {
@@ -145,7 +198,7 @@ export function initTasks() {
   $("todoInput").addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); todoAddFromInput(); } });
   (["open", "done", "all"] as const).forEach((k) => $("todoF_" + k).addEventListener("click", () => { filter = k; openId = null; renderTodo(); }));
   let st: any = 0; $("todoSearch").addEventListener("input", () => { clearTimeout(st); st = setTimeout(renderTodo, 120); });
-  $("todoUndoBtn").addEventListener("click", () => { if (!undoTask) return; Object.assign(undoTask.t, undoTask.before, { deleted: false }); touch(undoTask.t); undoTask = null; $("todoUndo").hidden = true; saveTasks(); renderTodo(); });
+  $("todoUndoBtn").addEventListener("click", () => { if (!undoFn) return; undoFn(); undoFn = null; $("todoUndo").hidden = true; saveTasks(); renderTodo(); });
   setInterval(updateTodoCount, 60000);
   // tasks that existed only in the next-meeting check list come along once
   let ch = false;
