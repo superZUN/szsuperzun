@@ -22,6 +22,7 @@ import { agenda, people, plannedMin, minutesFacts, prepSig } from "../meeting/pr
 import { carry, carryForward } from "../meeting/carry";
 import { annotatedTranscript, reconcileManual } from "../transcript";
 import { session } from "../meeting/session";
+import { meetingTypeLabel } from "../meeting/mtype";
 import { diarize, namedText, renderSpeakers, spk, clearSpeakers } from "./speakers";
 import { dropRecording, recKey } from "../speech/recorder";
 
@@ -29,7 +30,7 @@ export const M = { text: "", busy: false, forLen: -1, docId: null as string | nu
 
 export function defaultTitle() {
   const p = $("pTitle").value.trim(); if (p) return p; const d = new Date(S.meetingStart || Date.now());
-  return `${d.getMonth() + 1}/${d.getDate()} ${S.appMode === "conv" ? "대화" : $("mode").selectedOptions[0].textContent}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${S.appMode === "conv" ? "대화" : meetingTypeLabel()}`;
 }
 /** the "회의록 작성" bar after a session (meeting mode only) */
 export function updateEndBar() {
@@ -78,7 +79,7 @@ function buildMinutesPrompt(text: string, title: string, speakers = "") {
   const cards = S.history.filter((d) => d.type !== "note" && d.type !== "mark" && d.type !== "web").slice(0, 30).reverse().map((d) => `- [${TYPE[d.type]}] ${d.title}: ${d.body}`).join("\n");
   return minutesPrompt({
     text, title, conv: S.appMode === "conv", hasFocus: !!(S.marks.length || S.notes.length), template: cfg.minTemplate, hasPeople: people().length > 0, hasAgenda: agenda().length > 0, hasCarry: carry.items.length > 0,
-    typeLabel: S.appMode === "conv" ? "대화" : $("mode").selectedOptions[0].textContent, when: stamp(new Date(S.meetingStart || Date.now())),
+    typeLabel: S.appMode === "conv" ? "대화" : meetingTypeLabel(), when: stamp(new Date(S.meetingStart || Date.now())),
     actualMin: S.meetingStart ? Math.round((Date.now() - S.meetingStart) / 60000) : 0, plannedMin: plannedMin(), facts: minutesFacts(), cards,
     past: contextBlock(text.slice(0, 800) + " " + text.slice(-1200), 4), speakers: speakers || undefined,
   });

@@ -16,6 +16,7 @@ import { addKeyword } from "./keywords";
 import { aiTopic } from "./topic";
 import { routeVisual, showVisual } from "../qa/visual";
 import { setStatus } from "../controls";
+import { meetingType } from "../meeting/mtype";
 
 export const visAuto = () => cfg.visOn && Date.now() - S.visLast > 60000;
 /** current pacing; everyday talk waits twice as long between calls */
@@ -33,7 +34,7 @@ export async function analyze(force: boolean) {
   S.busy = true; S.pending = false; setStatus(); S.lastCallAt = Date.now(); const sentCount = S.segs.length;
   const recent = (full + " " + (S.curInterim || "")).trim().slice(-900), conv = S.appMode === "conv", daily = conv && !S.convWork, work = conv && S.convWork;
   const past = retrieveScored((fresh || recent).slice(-500), 2, { skipToday: true }).filter((x) => (daily ? x.s >= 6 && x.n >= 4 : x.s > 2)).map((x) => "<<" + x.c.doc + ">>\n" + x.c.text.slice(0, 450)).join("\n---\n");
-  const { system, prompt } = analyzePrompt({ conv, daily, work, meetingType: $("mode").value, visAuto: visAuto(), fresh, recent, past, shown: S.shownTitles, meetingBlock: conv ? "" : meetingBlock(), focusBlock: userFocusBlock() });
+  const { system, prompt } = analyzePrompt({ conv, daily, work, meetingType: meetingType(), visAuto: visAuto(), fresh, recent, past, shown: S.shownTitles, meetingBlock: conv ? "" : meetingBlock(), focusBlock: userFocusBlock() });
   let added = 0;
   const emit = (t: string) => {
     const objs = completeObjects(t);

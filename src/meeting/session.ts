@@ -17,6 +17,7 @@ import { renderTranscript, reconcileManual, annotatedTranscript, resetTranscript
 import { toggle } from "../controls";
 import { dropRecording, recKey } from "../speech/recorder";
 import { spk } from "../minutes/speakers";
+import { meetingType, setMeetingType } from "./mtype";
 
 export const session = { prepAtMinutes: null as string | null, continueOk: false, lastSaved: "" };
 export const agLogForAnnotate = () => S.agLog;
@@ -30,7 +31,7 @@ function snapshot() {
     shownTitles: S.shownTitles.slice(-30), qaLog: S.qaLog.slice(-10),
     actions: S.actions, agIdx: S.agIdx, agLog: S.agLog, agAlerted: S.agAlerted, totAlert: S.totAlert,
     prep: { title: $("pTitle").value, dur: $("pDur").value, agenda: $("pAgenda").value, people: $("pPeople").value },
-    minutesText: M.text, minutesForLen: M.forLen, minutesDocId: M.docId, mode: $("mode").value, minTitle: $("minTitle").value,
+    minutesText: M.text, minutesForLen: M.forLen, minutesDocId: M.docId, mode: meetingType(), minTitle: $("minTitle").value,
     spk: spk.cur, minutesKeyAt: M.keyAt, minTitleAuto: M.titleAuto, prepAtMinutes: session.prepAtMinutes, continueOk: session.continueOk, pendingFinal: M.pendingFinal, minStage: M.stage,
     kw: [...kwMap.values()].slice(-80).map((e) => ({ k: e.k, at: e.at, last: e.last, count: e.count, origin: e.origin, defT: e.def && e.def.t, recall: e.recall, wiki: e.wiki, web: e.web && !e.web.pending ? e.web : null, ctx: e.ctx })),
   };
@@ -47,7 +48,7 @@ export function restoreSession() {
   S.history.push(...((s.history || []) as CardData[])); S.shownTitles.push(...(s.shownTitles || [])); S.qaLog = s.qaLog || []; S.actions = s.actions || [];
   S.agIdx = s.agIdx ?? -1; S.agLog = s.agLog || []; S.agAlerted = s.agAlerted || {}; S.totAlert = s.totAlert || 0;
   $("pTitle").value = p.title || ""; $("pDur").value = p.dur || ""; $("pAgenda").value = p.agenda || ""; $("pPeople").value = p.people || "";
-  M.text = s.minutesText || ""; M.forLen = s.minutesForLen ?? -1; M.docId = s.minutesDocId || null; if (s.mode) $("mode").value = s.mode; $("minTitle").value = s.minTitle || "";
+  M.text = s.minutesText || ""; M.forLen = s.minutesForLen ?? -1; M.docId = s.minutesDocId || null; if (s.mode) setMeetingType(s.mode); $("minTitle").value = s.minTitle || "";
   spk.cur = s.spk || null;
   M.keyAt = s.minutesKeyAt || ""; M.titleAuto = s.minTitleAuto !== false; session.prepAtMinutes = s.prepAtMinutes ?? null; session.continueOk = !!s.continueOk; M.pendingFinal = s.pendingFinal || null;
   if (s.minStage) setStage(s.minStage.step, s.minStage.label, s.minStage.state === "run" ? "review" : s.minStage.state); if (M.pendingFinal) showReview(M.pendingFinal.issues || []);

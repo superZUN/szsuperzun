@@ -21,6 +21,7 @@ import { holdScreen, releaseScreen } from "./power/standby";
 import { resetCloud, cloudOn, testSttKey } from "./speech/cloud";
 import { renderLearn } from "./memory/learn";
 import { renderMind } from "./mindmap/mindmap";
+import { initMeetingType } from "./meeting/mtype";
 
 export function setStatus() {
   const s = $("status"); s.className = "status" + (S.busy ? " busy" : S.running ? " on" : "");
@@ -116,7 +117,7 @@ export function initControls() {
   $("startBtn").addEventListener("click", toggle);
   Object.keys(TABS).forEach((t) => $(t).addEventListener("click", () => showTab(t)));
   $("modeMemo").addEventListener("click", () => setInMode("memo")); $("modeAsk").addEventListener("click", () => setInMode("ask")); $("modeAct").addEventListener("click", () => setInMode("act"));
-  $("mode").addEventListener("change", () => { const want = $("mode").value === "english" ? "en-US" : "ko-KR"; if ($("lang").value !== want) { $("lang").value = want; $("lang").dispatchEvent(new Event("change")); } });
+  initMeetingType();
   initProviderForm();
   $("sttTest").addEventListener("click", async () => { $("sttMsg").textContent = "확인 중…"; $("sttMsg").textContent = await testSttKey(); });
   dictUI("baseOn", "baseCount", "baseShow", "baseList", BASE_TERMS, "baseOn", "ms.baseOff");
