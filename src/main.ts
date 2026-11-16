@@ -33,7 +33,7 @@ import { ai } from "./ai/client";
 import { initDayLog, flushLog, LOG_TIMING } from "./memory/daylog";
 import { initSummary, catchUp } from "./memory/summary";
 import { renderLearn } from "./memory/learn";
-import { initMindmap, mindState } from "./mindmap/mindmap";
+import { initMindmap, mindState, weeklyMindmap } from "./mindmap/mindmap";
 import { cfg } from "./settings/settings";
 import { usage } from "./ai/usage";
 import { micCheckTiming } from "./speech/miccheck";
@@ -65,8 +65,8 @@ if (!restored) [
   { type: "info", title: "'지난번 수준' = 수율 96.5%", body: "상대가 말한 '지난번 얘기한 수준'은 10/14 회의에서 합의한 Formation 수율 96.5%입니다." },
 ].reverse().forEach((x, i) => setTimeout(() => { if (!S.history.length) addNode(x, { example: true }); }, 400 + i * 500));
 if (!ai.apiKey) showTab("tabSet");
-void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); });
+void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); setTimeout(() => void weeklyMindmap(), 5000); });
 /** read-only window into the app for the automated tests (and for debugging in the console) */
-(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState };
+(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap };
 document.documentElement.dataset.ready = "1";
 void $;

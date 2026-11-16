@@ -5,6 +5,7 @@ import { S, type CardData, type CardImg } from "../state";
 import { F, neurons, nearestNeuron, pathTo, wake, fieldEl } from "./field";
 import { closeBoard, boardOpen } from "../board/board";
 import { addAction, actionLine } from "../meeting/actions";
+import { openWeekMap } from "../mindmap/mindmap";
 
 export const TYPE: Record<string, string> = { term: "용어", fact: "사실 확인", past: "지난 회의", ask: "물어볼 것", risk: "주의", answer: "답변", note: "내 메모", mark: "중요 표시", action: "할 일", info: "맥락", web: "검색", visual: "그림" };
 export const CODE: Record<string, string> = { term: "DEF", fact: "VERIFY", past: "RECALL", ask: "PROBE", risk: "ALERT", answer: "RESPONSE", note: "MEMO", mark: "★ MARK", action: "ACTION", info: "CONTEXT", web: "WEB", visual: "VISUAL" };
@@ -55,7 +56,7 @@ export function addNode(raw: Partial<CardData> & { type: string }, opts: { resto
   const type = TYPE[raw.type] ? raw.type : "fact";
   const data: CardData = opts.restore ? (raw as CardData) : {
     id: ++S.seq, type, title: raw.title || "", body: raw.body || "", source: raw.source || "", links: raw.links || [], kw: raw.kw || "", img: raw.img || null, example: !!opts.example,
-    time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }), ...(raw.act ? { act: raw.act } : {}),
+    time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }), ...(raw.act ? { act: raw.act } : {}), ...(raw.mm ? { mm: raw.mm } : {}),
   };
   if (opts.restore) S.seq = Math.max(S.seq, data.id || 0);
   if (!opts.example) {
@@ -175,6 +176,10 @@ export function renderFocus() {
   const c = $("focusCard"), d = focusItem!; c.className = "focus t-" + d.type; fill(c, d, true);
   const row = document.createElement("div"); row.className = "row"; row.style.justifyContent = "flex-end";
   const live = cards.find((x) => x.data === d);
+  if (d.mm) {
+    const b = document.createElement("button"); b.className = "primary"; b.textContent = "마인드맵 보기";
+    b.addEventListener("click", () => { closeFocus(); openWeekMap(d.mm!); }); row.append(b);
+  }
   if (d.act && !d.act.added) {
     const b = document.createElement("button"); b.className = "primary"; b.textContent = "할 일에 추가";
     b.addEventListener("click", () => { addFoundAction(d); renderFocus(); }); row.append(b);

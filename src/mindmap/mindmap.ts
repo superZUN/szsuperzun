@@ -3,6 +3,10 @@
 // The knob at a node's right end opens / closes its branch; tapping the node shows related passages and "이것에 대해 질문".
 // Drag to look around, pinch or ctrl+wheel to zoom. The last map per period/scope is kept on this device.
 import { $, completeObjects, esc } from "../util";
+import { saveLocal } from "../storage/idb";
+import { indexDoc, pushDoc } from "../library/docs";
+import { renderDocs } from "../library/ui";
+import { addNode } from "../hud/cards";
 import { S, joined, docKind, type Doc } from "../state";
 import { ls } from "../storage/ls";
 import { cfg } from "../settings/settings";
@@ -21,33 +25,35 @@ type Range = "today" | "7" | "30" | "all";
 const RANGE_LABEL: Record<Range, string> = { today: "오늘", "7": "최근 7일", "30": "최근 30일", all: "지금까지 전체" };
 const PALETTE = ["#6FE7FF", "#7CFFB2", "#D7B8FF", "#FFB547", "#8EC5FF", "#FF7A9A", "#B7C7FF", "#9FF3D0", "#E6F6FA"];
 const FONT = "IBM Plex Sans KR, Pretendard, 'Apple SD Gothic Neo', sans-serif";
-const M = { range: "7" as Range, scope: "all", tree: null as MNode | null, scale: 1, panX: 40, panY: 0, busy: false, fitted: false };
+const M = { range: "7" as Range, scope: "all", tree: null as MNode | null, scale: 1, panX: 40, panY: 0, busy: false, fitted: false, week: null as string | null, weekBusy: false };
 export const mindState = M; // tests
-const key = () => `ms.mm.${M.range}.${M.scope}`;
+const key = () => (M.week ? `ms.mm.week.${M.week}` : `ms.mm.${M.range}.${M.scope}`);
 
 /* ---------- material ---------- */
 const startOf = (r: Range) => { if (r === "all") return 0; if (r === "today") { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); } return Date.now() - Number(r) * 864e5; };
 const dayOfId = (id: string) => new Date(id.slice(4, 14) + "T12:00:00").getTime();
-const inRange = (t: number) => t >= startOf(M.range);
-/** the material for the AI, newest first, at most ~150k characters */
-export function collectMaterial(): { text: string; n: number } {
+interface Win { start: number; end: number; scope: string }
+/** the material for the AI, newest first, at most ~150k characters; by default the period and scope chosen on screen */
+export function collectMaterial(w: Win = { start: startOf(M.range), end: Infinity, scope: M.scope }): { text: string; n: number } {
+  const inRange = (t: number) => t >= w.start && t < w.end;
   if (cfg.dayLogOn) flushLog(true);
   const parts: { at: number; text: string }[] = [];
   const sums = new Set<string>();
   for (const d of S.docs) {
     const k = docKind(d);
-    if (k === "daysum" && inRange(dayOfId(d.id))) { sums.add(d.id.slice(4, 14)); parts.push({ at: dayOfId(d.id) + 1, text: `<<${d.name}>>\n${d.text.slice(0, 5000)}` }); }
+    if (k === "daysum" && inRange(dayOfId(d.id))) { if (d.text.length >= 200) sums.add(d.id.slice(4, 14)); // a too-short summary does not replace the day's log
+      parts.push({ at: dayOfId(d.id) + 1, text: `<<${d.name}>>\n${d.text.slice(0, 5000)}` }); }
   }
   for (const d of S.docs) {
     const k = docKind(d);
-    if (k === "doc" && isFinal(d) && d.text && inRange(d.added) && M.scope !== "daily") parts.push({ at: d.added, text: `<<${d.name}>>\n${d.text.split("## 부록")[0].slice(0, 6000)}` });
+    if (k === "doc" && isFinal(d) && d.text && inRange(d.added) && w.scope !== "daily") parts.push({ at: d.added, text: `<<${d.name}>>\n${d.text.split("## 부록")[0].slice(0, 6000)}` });
     if (k === "daylog") {
       const day = d.id.slice(4, 14); if (!inRange(dayOfId(d.id)) || (sums.has(day) && day !== dayKey())) continue;
-      const lines = d.text.split("\n").filter((l) => l.startsWith("[") && (M.scope === "all" || (M.scope === "work" ? /\((회의|업무)\)/.test(l) : /\(일상\)/.test(l))));
+      const lines = d.text.split("\n").filter((l) => l.startsWith("[") && (w.scope === "all" || (w.scope === "work" ? /\((회의|업무)\)/.test(l) : /\(일상\)/.test(l))));
       if (lines.length) parts.push({ at: dayOfId(d.id), text: `<<${d.name}>>\n${lines.join("\n").slice(-15000)}` });
     }
   }
-  if (!cfg.dayLogOn && S.segs.length && M.range !== "all") parts.push({ at: Date.now(), text: `<<지금 받아쓰기>>\n${joined().slice(-15000)}` });
+  if (!cfg.dayLogOn && S.segs.length && w.end === Infinity && w.start > 0) parts.push({ at: Date.now(), text: `<<지금 받아쓰기>>\n${joined().slice(-15000)}` });
   parts.sort((a, b) => b.at - a.at);
   let total = 0; const used: string[] = [];
   for (const p of parts) { if (total + p.text.length > 150000) break; used.push(p.text); total += p.text.length; }
@@ -67,6 +73,7 @@ export function parseTree(text: string): MNode | null {
 }
 async function make() {
   if (M.busy) return;
+  if (M.week) { M.week = null; document.querySelectorAll<HTMLElement>("#mindView [data-range]").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.range === M.range))); renderWeekList(); }
   if (!ai.apiKey) { meta(errText({ code: "no_key" }), true); return; }
   const mat = collectMaterial();
   if (mat.text.length < 60) { meta(`${RANGE_LABEL[M.range]}에 정리할 회의·대화 내용이 거의 없습니다.`, true); return; }
@@ -86,7 +93,7 @@ function show(st: Stored | null, fresh = false) {
   if (!M.tree) { $("mmSvg").innerHTML = ""; meta(""); return; }
   prepare(M.tree, 0, null, ""); M.fitted = false;
   const d = new Date(st!.at);
-  meta(`${RANGE_LABEL[M.range]} · ${d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })} ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}${fresh ? "에 만듦" : " 저장본"} · 자료 ${st!.sources}개 · 주제 ${count(M.tree) - 1}개`);
+  meta(`${M.week ? "주간 마인드맵 " + weekLabel(M.week) : RANGE_LABEL[M.range]} · ${d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })} ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}${fresh ? "에 만듦" : " 저장본"} · 자료 ${st!.sources}개 · 주제 ${count(M.tree) - 1}개`);
   draw(); fit();
 }
 let seq = 0;
@@ -182,12 +189,73 @@ function savePicture() {
   const restore = JSON.parse(open); (function w(a: MNode, s: MNode) { a.open = s.open; (a.c || []).forEach((c, i) => w(c, (s.c || [])[i] || c)); })(M.tree, restore); draw(); fit();
 }
 
-export function renderMind() { const st = ls.json<Stored | null>(key(), null); show(st); requestAnimationFrame(() => { if (M.tree) fit(); }); }
+export function renderMind() {
+  const unseen = ls.get("ms.mm.unseen"); if (unseen && !M.week) { ls.set("ms.mm.unseen", ""); openWeekMap(unseen); return; }
+  renderWeekList(); const st = M.week ? weekStored(M.week) : ls.json<Stored | null>(key(), null); show(st); requestAnimationFrame(() => { if (M.tree) fit(); });
+}
+
+/* ---------- weekly map: every Monday from 6 a.m., last Monday–Sunday, kept in an archive ---------- */
+/** Monday 00:00 of the week containing t (local time) */
+export const weekStart = (t: number) => { const d = new Date(t); const back = (d.getDay() + 6) % 7; return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back).getTime(); };
+const md = (t: number) => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
+export const weekLabel = (id: string) => { const s = new Date(id.slice(3, 13) + "T00:00:00").getTime(); return `${md(s)}–${md(s + 6 * 864e5)}`; };
+/** "# title\n- topic — note\n  - sub" back into a tree (for weekly maps made on another device) */
+export function parseOutline(text: string): MNode | null {
+  const lines = text.split("\n"); const title = (lines.find((l) => l.startsWith("# ")) || "# 마인드맵").slice(2).trim();
+  const root: MNode = { t: title, c: [] }; const stack: MNode[] = [root];
+  for (const l of lines) {
+    const m = l.match(/^(\s*)- (.*)$/); if (!m) continue; const depth = Math.floor(m[1].length / 2) + 1;
+    const [t, ...rest] = m[2].split(" — "); const node: MNode = { t: t.trim(), n: rest.join(" — ").trim(), c: [] };
+    while (stack.length > depth) stack.pop(); const parent = stack[stack.length - 1]; (parent.c ||= []).push(node); stack.push(node);
+  }
+  return root.c!.length ? root : null;
+}
+function weekStored(id: string): Stored | null {
+  const st = ls.json<Stored | null>(`ms.mm.week.${id}`, null); if (st) return st;
+  const d = S.docs.find((x) => x.id === id); const tree = d ? parseOutline(d.text) : null;
+  return tree ? { at: d!.added, tree, sources: 0 } : null;
+}
+function renderWeekList() {
+  const sel = $("mmWeek"); if (!sel) return; const weeks = S.docs.filter((d) => docKind(d) === "mindmap").map((d) => d.id).sort().reverse();
+  sel.textContent = ""; const o0 = document.createElement("option"); o0.value = ""; o0.textContent = weeks.length ? `주간 보관함 (${weeks.length})` : "주간 보관함 (아직 없음)"; sel.append(o0);
+  weeks.forEach((id) => { const o = document.createElement("option"); o.value = id; o.textContent = `주간 ${weekLabel(id)}`; sel.append(o); });
+  sel.value = M.week || "";
+}
+/** show one week from the archive (from the live card or the archive list) */
+export function openWeekMap(id: string) {
+  M.week = id; showTab("tabMind"); document.querySelectorAll("#mindView [data-range]").forEach((x) => x.setAttribute("aria-selected", "false"));
+  renderWeekList(); show(weekStored(id)); requestAnimationFrame(() => { if (M.tree) fit(); });
+}
+let weekTriedAt = 0;
+/** called at start-up and every 10 minutes: makes last week's map once, on Monday from 6 a.m. or later that week */
+export async function weeklyMindmap(now = Date.now()) {
+  if (M.weekBusy || !ai.apiKey || S.standby) return;
+  const ws = weekStart(now); if (now - ws < 6 * 3600e3) return; // Monday before 6 a.m.: not yet
+  const start = ws - 7 * 864e5, id = `mm-${dayKey(start)}`;
+  if (S.docs.some((d) => d.id === id) || ls.get("ms.mm.weekEmpty") === id || now - weekTriedAt < 3600e3) return;
+  const mat = collectMaterial({ start, end: ws, scope: "all" });
+  if (mat.text.length < 60) { ls.set("ms.mm.weekEmpty", id); return; } // nothing was recorded last week
+  M.weekBusy = true; weekTriedAt = now; const label = weekLabel(id);
+  try {
+    const t = await aiCall(mindmapPrompt(`지난주(${label})`, "all", mat.text), { maxTokens: 4000, kind: "mindmap" });
+    const tree = parseTree(t);
+    if (tree) {
+      const st: Stored = { at: Date.now(), tree, sources: mat.n }; ls.set(`ms.mm.week.${id}`, JSON.stringify(st));
+      const doc: Doc = { id, name: `주간 마인드맵 ${label}`, text: outline(tree), added: ws, dirty: true };
+      S.docs.push(doc); saveLocal(doc); indexDoc(doc); renderDocs(); void pushDoc(doc);
+      ls.set("ms.mm.unseen", id); renderWeekList();
+      addNode({ type: "info", title: `지난주 마인드맵 · ${label}`, body: `${(tree.c || []).map((c) => c.t).slice(0, 5).join(" · ")} — 주제 ${count(tree) - 1}개. 눌러서 보기`, source: "주간 마인드맵", mm: id });
+    }
+  } catch { /* try again within the hour */ }
+  M.weekBusy = false;
+}
 export function initMindmap() {
+  $("mmWeek").addEventListener("change", () => { const v = $("mmWeek").value; if (v) openWeekMap(v); else { M.week = null; renderMind(); } });
+  setInterval(() => void weeklyMindmap(), 10 * 60000);
   document.querySelectorAll<HTMLButtonElement>("#mindView [data-range]").forEach((b) => b.addEventListener("click", () => {
-    M.range = b.dataset.range as Range; document.querySelectorAll("#mindView [data-range]").forEach((x) => x.setAttribute("aria-selected", String(x === b))); renderMind();
+    M.week = null; M.range = b.dataset.range as Range; document.querySelectorAll("#mindView [data-range]").forEach((x) => x.setAttribute("aria-selected", String(x === b))); renderMind();
   }));
-  $("mmScope").addEventListener("change", () => { M.scope = $("mmScope").value; renderMind(); });
+  $("mmScope").addEventListener("change", () => { M.week = null; M.scope = $("mmScope").value; document.querySelectorAll<HTMLElement>("#mindView [data-range]").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.range === M.range))); renderMind(); });
   $("mmMake").addEventListener("click", make);
   $("mmExpand").addEventListener("click", () => setAll(true)); $("mmCollapse").addEventListener("click", () => setAll(false)); $("mmFit").addEventListener("click", fit);
   $("mmPng").addEventListener("click", savePicture);

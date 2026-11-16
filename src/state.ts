@@ -10,6 +10,8 @@ export interface CardData {
   img: CardImg | null; example?: boolean; time: string; deep?: boolean; dismissed?: boolean; bx?: number; by?: number; bpin?: boolean;
   /** an action the AI found: shown as a card, added to 할 일 only when the user taps "할 일에 추가" */
   act?: { text: string; owner: string; due: string; added?: boolean };
+  /** a weekly mind map card: the archive id it opens */
+  mm?: string;
 }
 export interface Action { id: number; text: string; owner: string; due: string; src: string; at: number; taskId?: string }
 export interface Doc {
@@ -18,7 +20,7 @@ export interface Doc {
   updatedAt?: number; dirty?: boolean;
 }
 /** day logs ("day-YYYY-MM-DD-<device>") and day summaries ("sum-YYYY-MM-DD") are recognised by their id */
-export const docKind = (d: { id: string }) => (d.id.startsWith("day-") ? "daylog" : d.id.startsWith("sum-") ? "daysum" : "doc");
+export const docKind = (d: { id: string }) => (d.id.startsWith("day-") ? "daylog" : d.id.startsWith("sum-") ? "daysum" : d.id.startsWith("mm-") ? "mindmap" : "doc");
 export interface QA { q: string; a: string; at: number; deep?: boolean }
 
 export const S = {
