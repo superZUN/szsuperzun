@@ -34,6 +34,7 @@ import { initDayLog, flushLog, LOG_TIMING } from "./memory/daylog";
 import { initSummary, catchUp } from "./memory/summary";
 import { renderLearn } from "./memory/learn";
 import { initMindmap, mindState, weeklyMindmap } from "./mindmap/mindmap";
+import { initCloud, cloud, CLOUD_TIMING } from "./speech/cloud";
 import { cfg } from "./settings/settings";
 import { usage } from "./ai/usage";
 import { micCheckTiming } from "./speech/miccheck";
@@ -55,7 +56,7 @@ initTranscriptUI(() => scheduleAnalyze());
 initRecognizer(); initGauge(); initMicCheck(); initStandby();
 initTopic(); initAnalyzeTicker(); initKeywords(); initAsk(); preloadMermaid();
 initMinutesUI(); initPrep(() => showTab("tabPrep")); initActions(); initCarry(); initTasks(); initSession();
-initDayLog(); initSummary(); renderLearn(); initMindmap();
+initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud();
 
 setStatus(); refreshNote(); updateFixStat();
 const restored = restoreSession(); renderAgBar(); updatePrepCount(); renderActions(); initialSnapshot();
@@ -67,6 +68,6 @@ if (!restored) [
 if (!ai.apiKey) showTab("tabSet");
 void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); setTimeout(() => void weeklyMindmap(), 5000); });
 /** read-only window into the app for the automated tests (and for debugging in the console) */
-(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap };
+(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap, cloud, CLOUD_TIMING };
 document.documentElement.dataset.ready = "1";
 void $;

@@ -1,7 +1,7 @@
 // Shared, mutable app state. One object so every module sees the same values (ESM bindings are read-only from outside).
 import { ls } from "./storage/ls";
 
-export interface Seg { raw: string; fix: string | null; at: number; manual?: boolean; busy?: boolean }
+export interface Seg { raw: string; fix: string | null; at: number; manual?: boolean; busy?: boolean; awaitCloud?: boolean; cloud?: boolean }
 export interface Note { at: number; text: string }
 export interface Mark { at: number; timer?: any }
 export interface CardImg { src?: string; full?: string; title?: string; credit?: string; page?: string; kind?: "photo" | "diagram"; pending?: boolean; error?: string; partial?: boolean; code?: string }
@@ -43,7 +43,7 @@ export const S = {
 };
 
 export const segText = (s: Seg) => (s.fix != null ? s.fix : s.raw);
-export const joined = () => S.segs.map(segText).join(" ");
+export const joined = () => S.segs.map(segText).filter(Boolean).join(" ");
 export const rawJoined = () => S.segs.map((s) => s.raw).join(" ");
 /** everyday talk in conversation mode (not work) */
 export const dailyTalk = () => S.appMode === "conv" && !S.convWork;

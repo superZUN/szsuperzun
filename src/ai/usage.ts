@@ -2,7 +2,7 @@
 import { ls } from "../storage/ls";
 import { cfg, PACES, type Pace } from "../settings/settings";
 
-export interface Usage { date: string; calls: number; inTok: number; outTok: number; cacheRead: number; cacheWrite: number; web: number; est: number; byKind: Record<string, number>; limitHit?: boolean }
+export interface Usage { date: string; calls: number; inTok: number; outTok: number; cacheRead: number; cacheWrite: number; web: number; est: number; byKind: Record<string, number>; limitHit?: boolean; stt?: { calls: number; sec: number; inTok: number; outTok: number } }
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const fresh = (): Usage => ({ date: today(), calls: 0, inTok: 0, outTok: 0, cacheRead: 0, cacheWrite: 0, web: 0, est: 0, byKind: {} });
 let u: Usage = ls.json<Usage>("ms.usage", fresh());
@@ -16,9 +16,13 @@ export const onUsage = (f: () => void) => listeners.push(f);
 /** called once when today's calls first reach the daily limit */
 export const onLimit = (f: () => void) => limitListeners.push(f);
 
-export interface CallUsage { inTok?: number; outTok?: number; cacheRead?: number; cacheWrite?: number; web?: boolean; estimated?: boolean }
+export interface CallUsage { inTok?: number; outTok?: number; cacheRead?: number; cacheWrite?: number; web?: boolean; estimated?: boolean; sec?: number }
 export function recordCall(kind: string, c: CallUsage) {
   roll();
+  if (kind === "stt") { // Gemini transcription: counted on its own, not against the daily AI-call limit
+    const s = (u.stt ||= { calls: 0, sec: 0, inTok: 0, outTok: 0 }); s.calls++; s.sec += c.sec || 0; s.inTok += c.inTok || 0; s.outTok += c.outTok || 0;
+    save(); listeners.forEach((f) => f()); return;
+  }
   u.calls++; u.byKind[kind] = (u.byKind[kind] || 0) + 1;
   u.inTok += c.inTok || 0; u.outTok += c.outTok || 0; u.cacheRead += c.cacheRead || 0; u.cacheWrite += c.cacheWrite || 0;
   if (c.web) u.web++;

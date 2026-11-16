@@ -53,7 +53,7 @@
       <div id="endBar" class="endbar" hidden><span class="mono">Session ended</span><span class="hint" style="flex:1">받아쓴 대화로 회의록을 만들 수 있습니다.</span><button id="chkBtn2">마무리 점검</button><button id="minutesBtn" class="primary">회의록 작성</button></div>
         <div id="micBar" class="micbar" hidden aria-live="polite">
           <span class="lbl">MIC</span><span id="micMeter" class="meter" title="마이크 입력 크기"><i></i></span><span id="micState" class="mstate">—</span>
-          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="recCount" class="mcount"></span><button id="micCheckBtn" class="mini">마이크 점검</button>
+          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="cloudState" class="mstate"></span><span id="recCount" class="mcount"></span><button id="micCheckBtn" class="mini">마이크 점검</button>
         </div>
       <div class="row tickrow">
         <div id="ticker" class="ticker"><span class="lbl">AUDIO ›</span><span id="live" class="txt idle">STANDBY</span></div>
@@ -313,6 +313,14 @@ NSE = NextStar Energy
       </div>
       <div class="panel">
         <h2>Audio<span>음성 인식 안내</span></h2>
+        <label class="f">받아쓰기 엔진
+          <select id="sttMode"><option value="safari">Safari 내장 — 무료, 바로 보임</option><option value="hybrid">Safari + Gemini 보정 — 바로 보이고 몇 초 뒤 더 정확한 글자로 바뀜</option><option value="cloud">Gemini만 — 가장 정확(한영 혼용), 몇 초 늦게 보임</option></select>
+        </label>
+        <label class="f">Gemini API 키 (aistudio.google.com/apikey 에서 받은 AIza…)<input id="sttKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza..."></label>
+        <label class="f">받아쓰기 모델 (비우면 gemini-2.5-flash-lite)<input id="sttModel" spellcheck="false" list="sttModels" placeholder="gemini-2.5-flash-lite"></label>
+        <datalist id="sttModels"><option value="gemini-2.5-flash-lite"></option><option value="gemini-3.8-flash"></option><option value="gemini-3-flash"></option></datalist>
+        <div class="row"><button id="sttTest">Gemini 연결 확인</button><span id="sttMsg" class="hint" style="flex:1"></span></div>
+        <div class="hint">Gemini는 마이크 게이지가 말소리를 들을 때만 소리를 보냅니다(조용할 땐 비용 없음). Safari와 Gemini가 같은 말을 5번 다르게 들으면 그 단어를 용어 사전에 자동으로 넣습니다.</div>
         <div class="row"><button id="micCheckBtn2">마이크 점검</button><span class="hint" style="flex:1">말을 못 알아들을 때: 마이크 문제인지, 음성 인식 문제인지, 둘이 부딪히는 건지 11초 만에 알려 줍니다.</span></div>
         <label class="row" style="gap:8px;font-size:13.5px"><input id="vadOn" type="checkbox" style="width:auto;flex:none" checked> 음성 감지 — 마이크 소리 크기를 따로 지켜보다가, 말소리는 들리는데 글자가 안 나오면 음성 인식을 바로 다시 켭니다 (상태 옆 막대)</label>
         <label class="row" style="gap:8px;font-size:13.5px"><input id="allDay" type="checkbox" style="width:auto;flex:none"> 하루 종일 켜두기 — 3분간 조용하면 대기(음성 인식·AI·화면 애니메이션 멈춤, 화면 어둡게), 목소리가 들리면 자동으로 깨어남</label>

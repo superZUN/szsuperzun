@@ -5,6 +5,7 @@
 import { $ } from "../util";
 import { ls } from "../storage/ls";
 import { glossary, storeGlossary, addToGlossary, gMsg } from "../library/glossary";
+import { addNode } from "../hud/cards";
 
 export interface PairStat { wrong: string; right: string; n: number; last: number }
 export interface AITerm { term: string; note: string; wrong: string[]; day: string }
@@ -74,4 +75,26 @@ export function renderLearn() {
     const no = document.createElement("button"); no.textContent = "무시"; no.addEventListener("click", () => { ignored.add(s.key); save(); renderLearn(); });
     row.append(t, add, no); box.append(row);
   });
+}
+
+/* ---------- Safari vs Gemini: the same word heard differently 5 times → into the glossary by itself ---------- */
+export const STT_AUTO_N = 5;
+const sttPairs: Record<string, PairStat & { added?: boolean }> = ls.json("ms.learn.stt", {});
+/** raw = what Safari wrote, heard = Gemini's text for the same stretch */
+export async function recordSttDiff(raw: string, heard: string) {
+  if (!raw || !heard || raw === heard) return;
+  const ready: (PairStat & { added?: boolean })[] = [];
+  for (const [w, r] of diffSpans(raw, heard)) {
+    const ws = strip(w), rs = strip(r);
+    if (!ws || !rs || ws === rs || /\d/.test(r) || w.length > 16 || r.length > 24) continue;
+    const key = ws + "→" + rs; const p = sttPairs[key] || (sttPairs[key] = { wrong: w, right: r, n: 0, last: 0 }); p.n++; p.last = Date.now();
+    if (p.n >= STT_AUTO_N && !p.added) ready.push(p);
+  }
+  ls.set("ms.learn.stt", JSON.stringify(sttPairs));
+  for (const p of ready) {
+    p.added = true; ls.set("ms.learn.stt", JSON.stringify(sttPairs));
+    if (inGlossary(p.right) && glossary.text.includes(p.wrong)) continue;
+    const r = await storeGlossary(addToGlossary(glossary.text, p.right, p.wrong)); gMsg(r.msg, r.warn); renderLearn();
+    addNode({ type: "term", title: `용어 사전에 자동 등록: ${p.right}`, body: `Safari가 '${p.wrong}'(으)로 받아쓴 말을 Gemini가 ${p.n}번 '${p.right}'(으)로 들었습니다. 다음부터 '${p.right}'(으)로 인식·교정합니다.`, source: "용어 학습" });
+  }
 }

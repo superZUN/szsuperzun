@@ -14,13 +14,14 @@ import { agLogForAnnotate } from "./meeting/session";
 import { live } from "./speech/recognizer";
 import { logSeg, logLine } from "./memory/daylog";
 import { recordFix } from "./memory/learn";
+import { cloudOn } from "./speech/cloud";
 
 export const HL_BEFORE = 30000, HL_AFTER = 30000; // a highlight covers 30 s before and after the tap
 let taShown = "", taDirty = false, fixing = false, fixTimer: any = null, lastSel = "";
 export let lastFinalSeg: Seg | null = null;
 
 /** correction is off when switched off, without a key, or (by default) in everyday talk */
-export const fixActive = () => cfg.fixOn && !!ai.apiKey && (!dailyTalk() || cfg.fixDaily);
+export const fixActive = () => cfg.fixOn && !!ai.apiKey && (!dailyTalk() || cfg.fixDaily) && !cloudOn(); // with Gemini transcription the text is already corrected
 export function updateFixStat() {
   const n = S.segs.filter((s) => s.fix == null).length;
   $("fixStat").textContent = !cfg.fixOn ? "교정 꺼짐" : !ai.apiKey ? "교정하려면 API 키 필요" : dailyTalk() && !cfg.fixDaily ? "일상 대화 — 교정 쉼" : n ? `교정 중 · ${n}문장 대기` : S.segs.length ? "교정 완료" : "";
@@ -40,8 +41,11 @@ export function reconcileManual() {
   taShown = v;
 }
 export function resetTranscriptView() { taShown = ""; lastFinalSeg = null; $("transcript").value = ""; }
-export function addUtterance(t: string) {
-  const s: Seg = { raw: t, fix: fixActive() ? null : t, at: Date.now() }; S.segs.push(s); lastFinalSeg = s; logSeg(s); renderTranscript(); queueFix(); return s;
+export function addUtterance(t: string, o: { at?: number; fix?: string; awaitCloud?: boolean } = {}) {
+  const s: Seg = { raw: t, fix: o.fix ?? (o.awaitCloud || fixActive() ? null : t), at: o.at ?? Date.now(), ...(o.awaitCloud ? { awaitCloud: true } : {}), ...(o.fix != null ? { cloud: true } : {}) };
+  // a sentence restored late (Gemini) goes where it was said
+  let i = S.segs.length; while (i > 0 && S.segs[i - 1].at > s.at) i--; S.segs.splice(i, 0, s); if (i < S.sentUpTo) S.sentUpTo++;
+  lastFinalSeg = s; logSeg(s); renderTranscript(); queueFix(); return s;
 }
 
 /* ---------- memo + highlight ---------- */
@@ -89,9 +93,9 @@ export function annotatedTranscript() {
 /* ---------- live correction: batches of sentences, only spelling / terms / numbers / spacing ---------- */
 export function queueFix() {
   if (!fixActive()) { // nothing to wait for: show the raw text as final
-    let ch = false; S.segs.forEach((s) => { if (s.fix == null && !s.busy) { s.fix = s.raw; ch = true; } }); if (ch) renderTranscript(); return;
+    let ch = false; S.segs.forEach((s) => { if (s.fix == null && !s.busy && !s.awaitCloud) { s.fix = s.raw; ch = true; } }); if (ch) renderTranscript(); return;
   }
-  const waiting = S.segs.filter((s) => s.fix == null && !s.busy); const n = waiting.length; if (!n) { clearTimeout(fixTimer); return; }
+  const waiting = S.segs.filter((s) => s.fix == null && !s.busy && !s.awaitCloud); const n = waiting.length; if (!n) { clearTimeout(fixTimer); return; }
   // changed from legacy (2 sentences / 0.7 s, i.e. about one call per sentence): batches by cost setting;
   // a lone sentence waits at most `maxWait` from when it was said (the minutes re-correct everything anyway)
   const pace = effectivePace(), batch = pace === "fast" ? 2 : pace === "save" ? 6 : 4, maxWait = pace === "fast" ? 700 : pace === "save" ? 20000 : 10000;
@@ -102,7 +106,7 @@ export function queueFix() {
 export const plausible = (fixed: string, raw: string) => !!fixed && fixed.length <= raw.length * 2 + 24 && fixed.length >= raw.length * 0.4;
 async function runFix() {
   clearTimeout(fixTimer); fixTimer = null;
-  if (fixing) return; const batch = S.segs.filter((s) => s.fix == null && !s.busy).slice(0, 6); if (!batch.length) return;
+  if (fixing) return; const batch = S.segs.filter((s) => s.fix == null && !s.busy && !s.awaitCloud).slice(0, 6); if (!batch.length) return;
   fixing = true; batch.forEach((s) => { s.busy = true; });
   const i0 = S.segs.indexOf(batch[0]), before = S.segs.slice(Math.max(0, i0 - 6), i0).map(segText).join(" ").slice(-400);
   const { system, prompt } = fixPrompt({ daily: dailyTalk(), conv: S.appMode === "conv", before, lines: batch.map((s) => s.raw) });

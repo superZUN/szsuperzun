@@ -18,6 +18,7 @@ import { updateFixStat } from "./transcript";
 import { rs, startRec, stopRec, speechSupported, setMicFailHandler } from "./speech/recognizer";
 import { vadStart, vadStop, renderGauge } from "./speech/gauge";
 import { holdScreen, releaseScreen } from "./power/standby";
+import { resetCloud, cloudOn, testSttKey } from "./speech/cloud";
 import { renderLearn } from "./memory/learn";
 import { renderMind } from "./mindmap/mindmap";
 
@@ -32,8 +33,9 @@ export async function toggle() {
   if (S.running) { S.startedAt = Date.now(); if (!S.meetingStart || !S.segs.length) S.meetingStart = S.startedAt; if (S.agIdx < 0 && agenda().length && S.appMode === "meet") setAgenda(0); }
   setStatus(); updateEndBar(); $("restoreBar").hidden = true;
   if (S.running) {
-    rs.lastHeardAt = Date.now(); void vadStart();
-    if (!startRec()) { $("aiNote").className = "hint warn"; $("aiNote").textContent = "이 브라우저는 실시간 음성 인식을 지원하지 않아요. Chrome, Edge, Safari에서 열어 주세요. '원문'을 열고 직접 입력해도 분석됩니다."; }
+    rs.lastHeardAt = Date.now(); resetCloud(); void vadStart();
+    if (cfg.sttMode === "cloud" && cloudOn()) { /* Gemini only: Safari recognition stays off; the gauge's microphone feeds Gemini */ }
+    else if (!startRec()) { $("aiNote").className = "hint warn"; $("aiNote").textContent = "이 브라우저는 실시간 음성 인식을 지원하지 않아요. Chrome, Edge, Safari에서 열어 주세요. '원문'을 열고 직접 입력해도 분석됩니다."; }
     void holdScreen(); renderGauge(true); keepWarm(true);
   } else {
     stopRec(); vadStop(); if (S.standby) { S.standby = false; $("sleepVeil").hidden = true; } void analyze(false); releaseScreen(); renderGauge(true); setStatus();
@@ -106,6 +108,7 @@ export function renderUsage() {
   line(`오늘 AI 호출 ${u.calls.toLocaleString()}회${cfg.dailyLimit ? ` / 한도 ${cfg.dailyLimit.toLocaleString()}` : ""} · 웹 검색 ${u.web}회`, overLimit() ? "over" : "");
   line(`토큰 약 입력 ${k(u.inTok)} (캐시 ${k(u.cacheRead)}) · 출력 ${k(u.outTok)}${u.est ? ` · ${u.est}회는 어림값` : ""}`);
   if (kinds) line(kinds);
+  if (u.stt && u.stt.calls) line(`Gemini 받아쓰기 ${u.stt.calls}회 · 소리 ${Math.round(u.stt.sec / 60)}분 · 토큰 입력 ${k(u.stt.inTok)} / 출력 ${k(u.stt.outTok)}`);
   line(`지금 분석 빈도: ${({ balanced: "균형", fast: "빠르게", save: "절약" } as any)[effectivePace()]}${overLimit() ? " (하루 한도를 넘어 자동 절약 중)" : ""}`, overLimit() ? "over" : "");
 }
 
@@ -115,6 +118,7 @@ export function initControls() {
   $("modeMemo").addEventListener("click", () => setInMode("memo")); $("modeAsk").addEventListener("click", () => setInMode("ask")); $("modeAct").addEventListener("click", () => setInMode("act"));
   $("mode").addEventListener("change", () => { const want = $("mode").value === "english" ? "en-US" : "ko-KR"; if ($("lang").value !== want) { $("lang").value = want; $("lang").dispatchEvent(new Event("change")); } });
   initProviderForm();
+  $("sttTest").addEventListener("click", async () => { $("sttMsg").textContent = "확인 중…"; $("sttMsg").textContent = await testSttKey(); });
   dictUI("baseOn", "baseCount", "baseShow", "baseList", BASE_TERMS, "baseOn", "ms.baseOff");
   dictUI("libOn", "libCount", "libShow", "libList", LIB_TERMS, "libOn", "ms.libOff");
   onUsage(() => { if (!$("setView").hidden) renderUsage(); });

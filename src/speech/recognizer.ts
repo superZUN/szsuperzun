@@ -12,7 +12,8 @@ import { glossary } from "../library/glossary";
 import { dictHits, shortName, BASE_TERMS, LIB_TERMS, GENERIC } from "../library/dict";
 import { people } from "../meeting/prep";
 import { wake } from "../hud/field";
-import { addUtterance } from "../transcript";
+import { addUtterance, renderTranscript, lastFinalSeg } from "../transcript";
+import { cloudOn } from "./cloud";
 import { updateTopic } from "../analysis/topic";
 import { voiceVisual } from "../qa/visual";
 import { instantScan, instantScanSoon } from "../analysis/keywords";
@@ -44,7 +45,13 @@ export const live = {
   showFixed(seg: Seg) { if (lastFinal && !$("live").classList.contains("idle") && lastFinal === seg.raw) { lastFinal = segText(seg); $("live").textContent = lastFinal; } },
 };
 
-function appendFinal(t: string) { lastFinal = t; S.curInterim = ""; updateTopic(t); addUtterance(t); voiceVisual(t); instantScan(t); scheduleAnalyze(); }
+function appendFinal(t: string) { lastFinal = t; S.curInterim = ""; updateTopic(t); addUtterance(t, { awaitCloud: cfg.sttMode === "hybrid" && cloudOn() }); voiceVisual(t); instantScan(t); scheduleAnalyze(); }
+/** Gemini's text: a new sentence (Gemini only, or a stretch Safari missed) or the better text for Safari's sentence */
+export function acceptCloudText(text: string, at: number, replaced: Seg | null) {
+  if (replaced) { renderTranscript(); instantScan(text); if (lastFinalSeg === replaced || !$("live").classList.contains("idle")) { lastFinal = text; showInterim(""); } return; }
+  lastFinal = text; updateTopic(text); addUtterance(text, { at, fix: text }); rs.lastResultAt = Date.now(); rs.lastHeardAt = rs.lastResultAt; if (S.standby) wakeUp("speech");
+  showInterim(""); voiceVisual(text); instantScan(text); scheduleAnalyze(); S.level = Math.min(1, S.level + 0.45); wake(1);
+}
 /** the full text the recogniser has said in this run of speech (what it may repeat next time) */
 const rawFinalBase = (f: string) => ((lastHeardText && Date.now() - lastHeardTextAt < 20000 ? lastHeardText + " " : "") + f).slice(-400);
 

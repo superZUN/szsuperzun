@@ -24,6 +24,8 @@ export const cfg = {
   dailyLimit: Math.max(0, Number(ls.get("ms.dailyLimit")) || 0),
   micHintOff: ls.get("ms.micHintOff") === "1",
   dayLogOn: ls.get("ms.dayLogOff") !== "1",
+  sttMode: ((): "safari" | "hybrid" | "cloud" => { const v = ls.get("ms.sttMode"); return v === "hybrid" || v === "cloud" ? v : "safari"; })(),
+  sttModel: ls.get("ms.sttModel"),
   daySumOn: ls.get("ms.daySumOff") !== "1",
 };
 
@@ -66,6 +68,12 @@ export function initSettingsUI() {
   pw.addEventListener("change", () => { cfg.power = pw.value; ls.set("ms.power", pw.value === "auto" ? "" : pw.value); changed(); });
   const pace = $("pace"); pace.value = cfg.pace;
   pace.addEventListener("change", () => { cfg.pace = pace.value; ls.set("ms.pace", pace.value === "balanced" ? "" : pace.value); changed(); });
+  const sm = $("sttMode"); sm.value = cfg.sttMode;
+  sm.addEventListener("change", () => { cfg.sttMode = sm.value; ls.set("ms.sttMode", sm.value === "safari" ? "" : sm.value); changed(); });
+  const smod = $("sttModel"); smod.value = cfg.sttModel;
+  smod.addEventListener("change", () => { cfg.sttModel = smod.value.trim(); ls.set("ms.sttModel", cfg.sttModel); });
+  const sk = $("sttKey"); sk.value = ls.get("ms.key.gemini");
+  sk.addEventListener("change", () => { ls.set("ms.key.gemini", sk.value.trim()); changed(); });
   const lim = $("dailyLimit"); lim.value = cfg.dailyLimit ? String(cfg.dailyLimit) : "";
   lim.addEventListener("change", () => { cfg.dailyLimit = Math.max(0, Math.round(Number(lim.value) || 0)); lim.value = cfg.dailyLimit ? String(cfg.dailyLimit) : ""; ls.set("ms.dailyLimit", cfg.dailyLimit || ""); changed(); });
   const lead = $("answerLead"); lead.value = cfg.answerLead;
