@@ -20,7 +20,42 @@ import { recFeed, flushPart } from "./recorder";
 import { ai } from "../ai/client";
 
 export type SttMode = "safari" | "hybrid" | "cloud";
-export const STT_DEFAULT_MODEL = "gemini-2.5-flash-lite";
+/** used only if the model list cannot be read; Google keeps this alias pointing at the current Flash-Lite */
+export const STT_DEFAULT_MODEL = "gemini-flash-lite-latest";
+/**
+ * Google retires Gemini models regularly (gemini-2.5-flash-lite stopped working in the Gemini API in autumn 2026),
+ * so the model is not hard-coded: the user's key lists the available models and the newest stable Flash-Lite is used
+ * (then Flash), remembered in ms.sttModelAuto and looked up again when Google answers "not found".
+ */
+export function pickModel(names: string[]): string | null {
+  const ok = names.map((n) => n.replace(/^models\//, "")).filter((n) => /^gemini-/.test(n) && !/tts|image|live|native-audio|embedding|exp|computer|robotics|thinking|aqa|learnlm/i.test(n));
+  const ver = (n: string) => parseFloat((n.match(/^gemini-(\d+(?:\.\d+)?)/) || [])[1] || "0");
+  const tier = (n: string) => (/flash-lite/.test(n) ? 0 : /flash/.test(n) ? 2 : 9) + (/preview|latest/.test(n) ? 1 : 0);
+  ok.sort((a, b) => tier(a) - tier(b) || ver(b) - ver(a) || a.length - b.length);
+  return ok.find((n) => tier(n) < 9) || null;
+}
+let resolved = ls.get("ms.sttModelAuto");
+async function discoverModel(): Promise<string> {
+  try {
+    const r = await fetch(`${GEM}/models?pageSize=200`, { headers: { "x-goog-api-key": sttKey() } });
+    if (r.ok) { const j = await r.json(); const m = pickModel((j.models || []).filter((x: any) => (x.supportedGenerationMethods || []).includes("generateContent")).map((x: any) => x.name)); if (m) return m; }
+  } catch { /* offline: fall back to the alias */ }
+  return STT_DEFAULT_MODEL;
+}
+/** the model to use: the one typed in settings, else the one found for this key */
+export async function sttModel(): Promise<string> {
+  if (cfg.sttModel) return cfg.sttModel;
+  if (!resolved) { resolved = await discoverModel(); ls.set("ms.sttModelAuto", resolved); }
+  return resolved;
+}
+/** Google said "not found": forget the model and find a current one (a model typed in settings is cleared too) */
+export async function replaceModel(): Promise<string> {
+  const old = cfg.sttModel || resolved;
+  if (cfg.sttModel) { cfg.sttModel = ""; ls.set("ms.sttModel", ""); const el = $("sttModel"); if (el) el.value = ""; }
+  resolved = await discoverModel(); if (resolved === old) resolved = STT_DEFAULT_MODEL; ls.set("ms.sttModelAuto", resolved);
+  return resolved;
+}
+export const currentSttModel = () => cfg.sttModel || resolved || "자동";
 const GEM = "https://generativelanguage.googleapis.com/v1beta";
 export const sttKey = () => ls.get("ms.key.gemini");
 export const cloudOn = () => cfg.sttMode !== "safari" && !!sttKey();
@@ -98,14 +133,19 @@ export const sttPrompt = (before: string) => `이 오디오에서 들리는 말�
 [용어] ${sttHints().join(", ")}
 [바로 앞 문맥 — 받아쓰지 말 것] ${before || "(없음)"}`;
 const b64 = async (blob: Blob) => { const bytes = new Uint8Array(await blob.arrayBuffer()); let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
-async function transcribe(wav: Blob): Promise<{ text: string; inTok: number; outTok: number }> {
-  const model = cfg.sttModel || STT_DEFAULT_MODEL; const before = S.segs.slice(-3).map((s) => s.fix ?? s.raw).join(" ").slice(-200);
+async function transcribe(wav: Blob, retried = false): Promise<{ text: string; inTok: number; outTok: number }> {
+  const model = await sttModel(); const before = S.segs.slice(-3).map((s) => s.fix ?? s.raw).join(" ").slice(-200);
   const thinking = /2\.5/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : { thinkingConfig: { thinkingLevel: "low" } };
   const body = (extra: any) => JSON.stringify({ contents: [{ role: "user", parts: [{ text: sttPrompt(before) }, { inline_data: { mime_type: "audio/wav", data: "" } }] }], generationConfig: { maxOutputTokens: 1024, ...extra } });
   const data = await b64(wav);
   const send = async (extra: any) => fetch(`${GEM}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": sttKey() }, body: body(extra).replace('"data":""', `"data":"${data}"`) });
   let r: Response; try { r = await send(thinking); if (r.status === 400 && /thinking/i.test(await r.clone().text())) r = await send({}); } catch { throw { code: "network" }; }
-  if (!r.ok) { let m = ""; try { m = (await r.json()).error?.message || ""; } catch { /* not json */ } throw { code: r.status === 401 || r.status === 403 || /api[_ ]?key/i.test(m) ? "bad_key" : r.status === 429 ? "rate_limited" : r.status === 404 || /model/i.test(m) ? "bad_model" : "http", message: m }; }
+  if (!r.ok) {
+    let m = ""; try { m = (await r.json()).error?.message || ""; } catch { /* not json */ }
+    const code = r.status === 401 || r.status === 403 || /api[_ ]?key/i.test(m) ? "bad_key" : r.status === 429 ? "rate_limited" : r.status === 404 || /not found|no longer available|not supported for generateContent/i.test(m) ? "bad_model" : "http";
+    if (code === "bad_model" && !retried) { const nm = await replaceModel(); notice(`받아쓰기 모델 '${model}'을 Google이 더 이상 제공하지 않아 '${nm}'(으)로 바꿨어요.`); return transcribe(wav, true); }
+    throw { code, message: m, model };
+  }
   const txt = await r.text(); let text = "", inTok = 0, outTok = 0;
   for (const line of txt.split("\n")) {
     if (!line.startsWith("data:")) continue; let ev: any; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
@@ -117,7 +157,7 @@ async function transcribe(wav: Blob): Promise<{ text: string; inTok: number; out
 function sttErr(e: any) {
   const c = e && e.code;
   if (c === "bad_key") return "Gemini 키가 맞지 않아요. 설정 → Audio의 'Gemini API 키'를 확인해 주세요.";
-  if (c === "bad_model") return `받아쓰기 모델 '${cfg.sttModel || STT_DEFAULT_MODEL}'을 찾을 수 없어요.`;
+  if (c === "bad_model") return `받아쓰기 모델 '${e.model || currentSttModel()}'을 찾을 수 없어요. 설정 → Audio의 '받아쓰기 모델'을 비우면 쓸 수 있는 모델을 자동으로 고릅니다.` + (e.message ? ` (${e.message})` : "");
   if (c === "rate_limited") return "Gemini 요청이 많아 잠시 쉬어요(무료 등급 한도일 수 있어요).";
   if (c === "network") return "Gemini에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.";
   return "Gemini 받아쓰기 오류" + (e && e.message ? ": " + e.message : "");
@@ -158,7 +198,14 @@ export const cloudLabel = () => {
 };
 export async function testSttKey(): Promise<string> {
   if (!sttKey()) return "Gemini API 키를 넣어 주세요.";
-  try { const r = await fetch(`${GEM}/models/${encodeURIComponent(cfg.sttModel || STT_DEFAULT_MODEL)}`, { headers: { "x-goog-api-key": sttKey() } }); if (r.ok) return `연결 성공 · ${cfg.sttModel || STT_DEFAULT_MODEL}`; return sttErr({ code: r.status === 404 ? "bad_model" : r.status === 400 || r.status === 401 || r.status === 403 ? "bad_key" : "http" }); }
+  try {
+    if (!cfg.sttModel) { resolved = ""; ls.set("ms.sttModelAuto", ""); } // look the list up afresh
+    const model = await sttModel();
+    const r = await fetch(`${GEM}/models/${encodeURIComponent(model)}`, { headers: { "x-goog-api-key": sttKey() } });
+    if (r.ok) return `연결 성공 · ${cfg.sttModel ? model : "자동 선택: " + model}`;
+    if (r.status === 404) { const nm = await replaceModel(); return `'${model}'은 쓸 수 없어 '${nm}'(으)로 바꿨어요. 다시 한 번 연결 확인을 눌러 주세요.`; }
+    return sttErr({ code: r.status === 400 || r.status === 401 || r.status === 403 ? "bad_key" : "http" });
+  }
   catch { return sttErr({ code: "network" }); }
 }
 export function initCloud() {
@@ -167,3 +214,24 @@ export function initCloud() {
 }
 export function resetCloud() { cloud.fellBack = false; cloud.failures = 0; cloud.error = ""; cloud.sent = 0; order = 0; nextEmit = 0; done.clear(); queue.length = 0; }
 export { hhmm, rs };
+
+/** a one-line note in the AI status line */
+function notice(t: string) { const n = $("aiNote"); if (n) { n.className = "hint"; n.textContent = t; } }
+
+/* ---------- iPad: Safari recognition takes the microphone, so the gauge / Gemini / recording hear silence ---------- */
+let conflictShown = false;
+/** Safari keeps turning speech into words while the gauge's own stream stays silent → offer "Gemini만" */
+export function checkMicConflict(quietMs: number, lastResultAt: number, safariOn: boolean) {
+  if (conflictShown || !safariOn || !sttKey()) return;
+  if (!(cfg.sttMode === "hybrid" || cfg.recMeet)) return;
+  if (quietMs > 12000 && Date.now() - lastResultAt < 8000) {
+    conflictShown = true;
+    $("micHintMsg").textContent = "이 기기에서는 Safari 음성 인식이 마이크를 쓰는 동안 녹음·Gemini가 소리를 받지 못해요(마이크 막대가 비어 있음). 'Gemini만'으로 바꾸면 Gemini가 마이크를 혼자 써서 받아쓰기·화자 구분이 모두 됩니다.";
+    let b = document.getElementById("micHintCloud") as HTMLButtonElement | null;
+    if (!b) { b = document.createElement("button"); b.id = "micHintCloud"; b.className = "primary"; b.textContent = "Gemini만으로 바꾸기"; $("micHint").insertBefore(b, $("micHintClose")); b.addEventListener("click", () => { $("micHint").hidden = true; switchToCloud(); }); }
+    $("micHint").hidden = false;
+  }
+}
+let onSwitch: () => void = () => {};
+export const setSwitchHandler = (f: () => void) => { onSwitch = f; };
+function switchToCloud() { cfg.sttMode = "cloud"; ls.set("ms.sttMode", "cloud"); const el = $("sttMode"); if (el) el.value = "cloud"; onSwitch(); }

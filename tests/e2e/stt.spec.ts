@@ -15,9 +15,13 @@ const speak = async (page: Page, ms = 1500, during?: string) => {
   await page.waitForTimeout(ms / 2); await ev(page, "window.__mic.set({ voice: 0 })");
 };
 const GEM = { "ms.key.gemini": "AIza-test" };
+const MODELS = ["models/gemini-2.0-flash-lite", "models/gemini-3.1-flash-lite-preview", "models/gemini-3.1-flash-lite", "models/gemini-3.8-flash", "models/gemini-3.1-pro-preview", "models/gemini-3.1-flash-lite-tts", "models/text-embedding-005"];
+/** the key's model list (route added after mockAI, so it wins) */
+const modelList = (page: Page, names = MODELS) => page.route(/generativelanguage\.googleapis\.com\/v1beta\/models\?/, (r) => r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*" }, contentType: "application/json", body: JSON.stringify({ models: names.map((n) => ({ name: n, supportedGenerationMethods: /embedding/.test(n) ? ["embedContent"] : ["generateContent"] })) }) }));
 
 test("Gemini만: Safari 인식은 켜지 않고, 말소리 구간만 WAV로 보내 받아쓴 글자를 기록", async ({ open, page }) => {
   const ai = await mockAI(page, (c) => (isStt(c) ? "고객사 샘플 납기는 11월 20일입니다. Formation 3호기 수율은 96.5%예요." : "[]"));
+  await modelList(page);
   await open({ storage: { ...GEM, "ms.sttMode": "cloud" } });
   await page.click("#startBtn");
   await expect(page.locator("#recState")).toHaveText("Gemini 받아쓰기");
@@ -25,7 +29,7 @@ test("Gemini만: Safari 인식은 켜지 않고, 말소리 구간만 WAV로 보�
   await speak(page);
   await expect.poll(() => transcript(page), { timeout: 6000 }).toBe("고객사 샘플 납기는 11월 20일입니다. Formation 3호기 수율은 96.5%예요.");
   const c = ai.calls.find(isStt)!;
-  expect(c.url).toContain("/models/gemini-2.5-flash-lite:streamGenerateContent");
+  expect(c.url).toContain("/models/gemini-3.1-flash-lite:streamGenerateContent"); // the newest stable Flash-Lite this key can use
   const part = c.body.contents[0].parts.find((p: any) => p.inline_data).inline_data;
   expect(part.mime_type).toBe("audio/wav");
   const wav = Buffer.from(part.data, "base64");
@@ -104,4 +108,56 @@ test("설정: 엔진·키·모델 저장, 연결 확인, 키 없으면 Safari로
   // no key: Gemini mode cannot run, Safari recognition is used
   await page.fill("#sttKey", ""); await page.locator("#sttKey").dispatchEvent("change");
   await page.click("#tabLive"); await startListening(page);
+});
+
+test("모델 자동 선택: 가장 새 정식 Flash-Lite → 없으면 Flash, TTS·임베딩·미리보기는 뒤로", async ({ open, page }) => {
+  await open({});
+  const r = await page.evaluate(async () => { const m = await import("/src/speech/cloud.ts"); return [
+    m.pickModel(["models/gemini-2.0-flash-lite", "models/gemini-3.1-flash-lite-preview", "models/gemini-3.1-flash-lite", "models/gemini-3.8-flash", "models/gemini-3.1-flash-lite-tts"]),
+    m.pickModel(["models/gemini-3.1-flash-lite-preview", "models/gemini-3.8-flash"]),
+    m.pickModel(["models/gemini-3.8-flash", "models/gemini-3-flash", "models/gemini-3.1-pro"]),
+    m.pickModel(["models/text-embedding-005"]),
+  ]; });
+  expect(r).toEqual(["gemini-3.1-flash-lite", "gemini-3.1-flash-lite-preview", "gemini-3.8-flash", null]);
+});
+
+test("Google이 없앤 모델(404)이면 쓸 수 있는 모델로 바꿔 바로 다시 받아씀, 안내 한 줄", async ({ open, page }) => {
+  const ai = await mockAI(page, (c) => (!isStt(c) ? "[]" : c.url.includes("gemini-2.5-flash-lite") ? { status: 404, error: "models/gemini-2.5-flash-lite is no longer available to new users" } : "다시 받아쓴 문장입니다"));
+  await modelList(page);
+  await open({ storage: { ...GEM, "ms.sttMode": "cloud", "ms.sttModel": "gemini-2.5-flash-lite" } });
+  await page.click("#startBtn");
+  await speak(page);
+  await expect.poll(() => transcript(page), { timeout: 8000 }).toBe("다시 받아쓴 문장입니다");
+  await expect(page.locator("#aiNote")).toContainText("'gemini-2.5-flash-lite'을 Google이 더 이상 제공하지 않아 'gemini-3.1-flash-lite'(으)로 바꿨어요");
+  expect(ai.calls.filter(isStt).map((c) => c.url.match(/models\/([^:]+):/)![1])).toEqual(["gemini-2.5-flash-lite", "gemini-3.1-flash-lite"]);
+  expect(await ev(page, "localStorage.getItem('ms.sttModel')")).toBeNull();
+  expect(await ev(page, "localStorage.getItem('ms.sttModelAuto')")).toBe("gemini-3.1-flash-lite");
+  await page.click("#startBtn"); await page.click("#tabSet");
+  await expect(page.locator("#sttModel")).toHaveValue("");
+});
+
+test("연결 확인은 자동으로 고른 모델을 알려 줌", async ({ open, page }) => {
+  await mockAI(page, () => "ok");
+  await modelList(page);
+  await open({ storage: { ...GEM } });
+  await page.click("#tabSet"); await page.click("#sttTest");
+  await expect(page.locator("#sttMsg")).toHaveText("연결 성공 · 자동 선택: gemini-3.1-flash-lite");
+});
+
+test("아이패드 마이크 충돌: Safari는 알아듣는데 막대는 계속 조용하면 'Gemini만으로 바꾸기' 제안 → 누르면 바로 전환", async ({ open, page }) => {
+  test.setTimeout(60000);
+  await mockAI(page, (c) => (isStt(c) ? "젬니니가 들은 문장" : "[]"));
+  await modelList(page);
+  await open({ storage: { ...GEM, "ms.sttMode": "hybrid" } });
+  await startListening(page);
+  await expect.poll(() => app(page, "!!A.vad.timer")).toBe(true);
+  for (let i = 0; i < 9; i++) { await ev(page, `window.__say('사파리만 알아듣는 문장 ${i}번')`); await page.waitForTimeout(1600); } // the microphone stream stays silent meanwhile
+  await expect(page.locator("#micHint")).toBeVisible();
+  await expect(page.locator("#micHintMsg")).toContainText("Safari 음성 인식이 마이크를 쓰는 동안 녹음·Gemini가 소리를 받지 못해요");
+  await page.getByRole("button", { name: "Gemini만으로 바꾸기" }).click();
+  expect(await ev(page, "localStorage.getItem('ms.sttMode')")).toBe("cloud");
+  await expect.poll(() => ev(page, "!!window.__sr.live")).toBe(false);
+  await expect(page.locator("#recState")).toHaveText("Gemini 받아쓰기");
+  await speak(page);
+  await expect.poll(() => transcript(page), { timeout: 8000 }).toContain("젬니니가 들은 문장");
 });

@@ -7,7 +7,7 @@ import { cfg } from "../settings/settings";
 import { recordCall } from "../ai/usage";
 import { speakersPrompt, SPK_MARK } from "../ai/prompts";
 import { people } from "../meeting/prep";
-import { sttKey, sttHints, STT_DEFAULT_MODEL } from "../speech/cloud";
+import { sttKey, sttHints, sttModel, replaceModel } from "../speech/cloud";
 import { loadRecording, recKey } from "../speech/recorder";
 
 const GEM = "https://generativelanguage.googleapis.com";
@@ -37,10 +37,12 @@ export async function diarize(onStage: (t: string) => void): Promise<Speakers | 
   if (!rec || rec.sec < 5) return null;
   onStage(`회의 녹음 ${Math.round(rec.sec / 60)}분으로 누가 말했는지 나누는 중`);
   const audio = rec.blob.size <= SPEAKERS.inlineMax ? { inline_data: { mime_type: "audio/mp3", data: await b64(rec.blob) } } : { file_data: { mime_type: "audio/mp3", file_uri: await uploadFile(rec.blob, onStage) } };
-  const model = cfg.sttModel || STT_DEFAULT_MODEL;
+  let model = await sttModel();
   const gen = { maxOutputTokens: 60000, ...(/2\.5/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : { thinkingConfig: { thinkingLevel: "low" } }) };
-  const r = await fetch(`${GEM}/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": sttKey() },
+  const call = (m: string) => fetch(`${GEM}/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": sttKey() },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: speakersPrompt(people(), sttHints()) }, audio] }], generationConfig: gen }) });
+  let r = await call(model);
+  if (r.status === 404) { model = await replaceModel(); r = await call(model); } // the model was retired: use a current one
   if (!r.ok) { let m = ""; try { m = (await r.json()).error?.message || ""; } catch { /* not json */ } throw err(r.status, m); }
   const raw = await r.text(); let text = "", inTok = 0, outTok = 0;
   for (const line of raw.split("\n")) { if (!line.startsWith("data:")) continue; let ev: any; try { ev = JSON.parse(line.slice(5)); } catch { continue; }

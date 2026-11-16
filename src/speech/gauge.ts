@@ -10,7 +10,7 @@ import { cfg } from "../settings/settings";
 import { ls } from "../storage/ls";
 import { rs, restartRec, startRec } from "./recognizer";
 import { wakeUp } from "../power/standby";
-import { cloudAttach, cloudDetach, cloudOn, cloudLabel, cloud, sttKey } from "./cloud";
+import { cloudAttach, cloudDetach, cloudOn, cloudLabel, cloud, sttKey, checkMicConflict } from "./cloud";
 import { recWanted, recInfo } from "./recorder";
 
 export const vad = {
@@ -66,6 +66,7 @@ export function renderGauge(force?: boolean) {
     else if (gaugeState.quietSince && now - gaugeState.quietSince > 8000) { ms.textContent = "입력 없음 — 마이크 확인"; ms.className = "mstate bad"; }
     else { ms.textContent = "조용함"; ms.className = "mstate"; }
   } else { ms.textContent = vad.err || (cfg.vadOn ? "준비 중" : "막대 꺼짐"); ms.className = "mstate" + (vad.err ? " warn" : ""); }
+  if (vadLive()) checkMicConflict(gaugeState.quietSince ? now - gaugeState.quietSince : 0, rs.lastResultAt, rs.wanted && !!rs.rec);
   const deaf = vadLive() && vad.speaking && now - vad.voiceStart > 2500 && now - rs.lastResultAt > 2500 && !S.curInterim;
   if (S.standby) { rsEl.textContent = "대기 (목소리에 깨어남)"; rsEl.className = "mstate"; dot.className = "rdot"; }
   else if (cfg.sttMode === "cloud" && cloudOn() && !cloud.fellBack) { rsEl.textContent = "Gemini 받아쓰기"; rsEl.className = "mstate good"; dot.className = "rdot " + (cloud.state === "sending" ? "hit" : "on"); }
