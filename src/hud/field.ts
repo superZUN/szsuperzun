@@ -27,14 +27,14 @@ export const dprCap = () => (cfg.power === "save" ? 1 : cfg.power === "full" ? 2
 export function layoutField(force?: boolean) {
   const r = field.getBoundingClientRect(); if (!r.width || !r.height) return;
   if (!force && Math.abs(r.width - F.W) < 1 && Math.abs(r.height - F.H) < 1) return;
-  F.W = r.width; F.H = r.height; F.D = Math.min(dprCap(), devicePixelRatio || 1); cv.width = F.W * F.D; cv.height = F.H * F.D; cv.style.width = F.W + "px"; cv.style.height = F.H + "px";
+  F.W = r.width; F.H = r.height; F.D = Math.min(dprCap(), devicePixelRatio || 1); cv.width = Math.round(F.W * F.D); cv.height = Math.round(F.H * F.D); cv.style.width = F.W + "px"; cv.style.height = F.H + "px";
   F.wide = F.W >= 640; F.cx = F.W / 2; F.cy = F.H / 2;
   F.R = F.wide ? Math.max(64, Math.min(F.W * 0.11, F.H * 0.2, 120)) : Math.max(46, Math.min(F.W * 0.19, F.H * 0.11, 74));
   buildMesh();
 }
 function buildMesh() {
   neurons = []; edges = []; coreEdges = []; signals = [];
-  const { W, H, cx, cy, R, wide } = F; const rx = wide ? Math.min(W * 0.26, H * 0.75) : W * 0.48, ry = H * 0.46, want = wide ? 95 : 70, minD = wide ? 30 : 26, inner = R * 1.42;
+  const { W, H, cx, cy, R, wide } = F; const rx = wide ? Math.min(W * 0.26, H * 0.95) : W * 0.48, ry = H * 0.46, want = wide ? Math.round(Math.min(140, 95 * Math.max(1, W / 1180))) : 70, minD = wide ? 30 : 26, inner = R * 1.42;
   for (let i = 0; i < want * 40 && neurons.length < want; i++) {
     const a = Math.random() * 6.283, u = Math.sqrt(Math.random()); const x = cx + Math.cos(a) * rx * u, y = cy + Math.sin(a) * ry * u;
     if (Math.hypot(x - cx, y - cy) < inner) continue; if (neurons.some((n) => Math.hypot(n.x - x, n.y - y) < minD)) continue;

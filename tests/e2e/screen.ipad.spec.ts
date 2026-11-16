@@ -45,9 +45,9 @@ test("캔버스 해상도 상한: 자동 1.5배, 최대 절약 1배", async ({ b
   const page = await ctx.newPage();
   await page.goto("/"); await page.click("#tabLive"); await page.waitForTimeout(500);
   const ratio = () => page.evaluate(() => { const c = document.getElementById("hud") as HTMLCanvasElement; return c.width / parseFloat(c.style.width); });
-  expect(await ratio()).toBe(1.5);
+  expect(await ratio()).toBeCloseTo(1.5, 2);
   await page.click("#tabSet"); await page.selectOption("#powerMode", "save"); await page.setViewportSize({ width: 1100, height: 820 }); await page.click("#tabLive"); await page.waitForTimeout(500);
-  expect(await ratio()).toBe(1);
+  expect(await ratio()).toBeCloseTo(1, 2);
   await ctx.close();
 });
 

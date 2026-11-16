@@ -152,7 +152,7 @@ test.describe("카드와 손동작", () => {
     await expect(live(page)).toHaveCount(6);
     const b = await settled(page);
     await page.mouse.move(b.x + 40, b.y + 20); await page.mouse.down();
-    for (let i = 1; i <= 4; i++) { await page.mouse.move(b.x + 40 - i * 40, b.y + 20, { steps: 1 }); await page.waitForTimeout(8); }
+    for (let i = 1; i <= 4; i++) { await page.mouse.move(b.x + 40 + i * 40, b.y + 20, { steps: 1 }); await page.waitForTimeout(8); } // thrown towards the middle (stays on screen)
     await page.mouse.up();
     await expect(page.locator("#field .callout.flung")).toHaveCount(0, { timeout: 2000 });
     await expect(live(page)).toHaveCount(6);

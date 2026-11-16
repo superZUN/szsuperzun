@@ -124,7 +124,7 @@ export function unpin(c: Card) { c.pin = null; c.col = null; c.anchor = null; c.
 export function layoutCards(dt: number) {
   const { W, cx, cy, R, wide } = F; const max = wide ? 6 : 4; const free = cards.filter((c) => !c.pin);
   while (free.length > max) retire(free.pop()!);
-  const k = Math.min(1, dt * 0.012), colW = wide ? Math.min(340, W * 0.29) : Math.min(W - 8, 460);
+  const k = Math.min(1, dt * 0.012), colW = wide ? Math.round(Math.min(460, Math.max(300, W * 0.27))) : Math.min(W - 8, 560); // grows with the screen
   cards.forEach((c, i) => { c.el.classList.toggle("compact", i >= 2); c.el.classList.toggle("lead", i === 0); if (c.el.style.width !== colW + "px") c.el.style.width = colW + "px"; c.w = colW; c.h = c.el.offsetHeight; });
   for (const c of cards) if (c.pin) { c.tx = c.pin.x; c.ty = c.pin.y; c.side = wide ? (c.pin.x + c.w / 2 < cx ? "L" : "R") : c.pin.y + c.h / 2 < cy ? "T" : "B"; }
   // each card keeps its column for life; a new one joins the emptier column

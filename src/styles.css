@@ -16,11 +16,11 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:10
 /* iPad zooms the page when a text box under 16px gets focus: keep them at 16px on touch screens */
 @media (pointer:coarse){input,textarea,select{font-size:16px!important}}
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;
-  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));
+  padding-left:max(clamp(10px,1.4vw,22px),env(safe-area-inset-left,0px));padding-right:max(clamp(10px,1.4vw,22px),env(safe-area-inset-right,0px));
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
   display:flex;flex-direction:column;overflow:hidden;-webkit-text-size-adjust:100%}
 #grid{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
-.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;max-width:1100px;width:100%;margin:0 auto;min-height:0}
+.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;width:100%;min-width:0;min-height:0}
 .mono{font-family:var(--font-mono);letter-spacing:.14em;text-transform:uppercase}
 
 /* header */
@@ -127,7 +127,7 @@ select.lang{width:auto;flex:none;font-size:12px;padding:6px 8px;font-family:var(
 .vis.wait{min-height:60px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;color:var(--muted)}
 .callout.compact .vis{display:none}
 .focus .vis img{max-height:52vh;cursor:zoom-in}
-.hitem .vis{max-width:420px}.hitem .vis img{max-height:140px}
+.hitem .vis{max-width:min(100%,560px)}.hitem .vis img{max-height:140px}
 .lightbox{position:fixed;inset:0;z-index:20;background:#02080a;display:flex;flex-direction:column}
 .lightbox .lbbar{display:flex;gap:8px;align-items:center;padding:10px max(14px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
 .lightbox .lbbar span{flex:1;font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -176,7 +176,7 @@ body.conv #agBar{display:none}
 .aitem .src{grid-column:1/-1;font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
 .aitem.new{grid-template-columns:1fr 130px 100px auto}
 @media (max-width:560px){.aitem{grid-template-columns:1fr 1fr auto}.aitem input:first-child{grid-column:1/-1}}
-.todo{max-width:760px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
+.todo{width:100%;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
 .tadd input{flex:1}
 .tbar{gap:10px;flex-wrap:wrap}.tbar input{flex:1;min-width:120px}
 .tfil{display:flex;gap:6px}.tfil button{font-size:13px;padding:6px 12px}.tfil button[aria-pressed="true"]{color:#021014;background:var(--cy);border-color:var(--cy)}
@@ -263,7 +263,7 @@ button.hl .num{color:#fff;opacity:.7}
 
 /* overlays */
 .veil{position:fixed;inset:0;z-index:10;background:rgba(1,4,6,.72);display:flex;align-items:center;justify-content:center;padding:20px}
-.focus{position:relative;width:min(100%,500px);max-height:80vh;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:8px;clip-path:var(--cut);
+.focus{position:relative;width:min(100%,clamp(500px,46vw,760px));max-height:80vh;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:8px;clip-path:var(--cut);
   background:linear-gradient(180deg,rgba(9,28,34,.97),rgba(3,11,14,.97));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent),inset 0 1px 0 0 var(--c)}
 .focus .hd{display:flex;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
 .focus .code{color:var(--c)}
@@ -271,10 +271,10 @@ button.hl .num{color:#fff;opacity:.7}
 .focus .body{color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
 .focus .src{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:10;max-height:74vh;display:flex;flex-direction:column;background:rgba(2,8,10,.97);border-top:1px solid var(--line-2);
-  padding:12px max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-bottom,0px))}
-.sheet header{padding:0 0 10px;max-width:1100px;width:100%;margin:0 auto}
+  padding:12px max(clamp(10px,1.4vw,22px),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(clamp(10px,1.4vw,22px),env(safe-area-inset-left,0px))}
+.sheet header{padding:0 0 10px;width:100%}
 .sheet h2{flex:1;margin:0;font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.22em;color:var(--ink-2)}
-.hist{overflow:auto;display:flex;flex-direction:column;max-width:1100px;width:100%;margin:0 auto}
+.hist{overflow:auto;display:flex;flex-direction:column;width:100%}
 .hitem{padding:10px 0 11px 14px;border-bottom:1px solid var(--line);border-left:1px solid var(--c);display:flex;flex-direction:column;gap:3px}
 .hitem .hd{display:flex;gap:10px;font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
 .hitem .code{color:var(--c)}
@@ -298,7 +298,7 @@ button.hl .num{color:#fff;opacity:.7}
 .reviewbox b{font-size:13px;color:var(--amber);font-weight:500}.reviewbox ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-2)}
 .dbadge{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;padding:2px 6px;margin-right:6px;vertical-align:1px;background:var(--cy);color:#021014}
 .dbadge.review{background:var(--amber)}
-.minwrap{display:flex;flex-direction:column;gap:10px;min-height:0;flex:1;max-width:860px;width:100%;margin:0 auto}
+.minwrap{display:flex;flex-direction:column;gap:10px;min-height:0;flex:1;width:100%}
 .minopts{flex-wrap:wrap}
 .minopts input{flex:1 1 200px}
 .sheet.tall{background:#020709}
@@ -369,3 +369,6 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 .mmnode{cursor:pointer}
 .mmnode:focus{outline:none}.mmnode:focus-visible rect,.mmnode:focus-visible path{stroke-width:2}
 .msec{margin-top:8px}.msec b{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--cy);margin-bottom:3px}
+/* wide screens: the whole width is used; sheets and lists spread out */
+@media (min-width:1400px){.kb{grid-template-columns:repeat(auto-fit,minmax(400px,1fr))}.minout{font-size:15px}}
+.view,.field,.dock,.kwbar,.agbar{min-width:0}
