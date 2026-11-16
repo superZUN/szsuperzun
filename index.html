@@ -53,7 +53,7 @@
       <div id="endBar" class="endbar" hidden><span class="mono">Session ended</span><span class="hint" style="flex:1">받아쓴 대화로 회의록을 만들 수 있습니다.</span><button id="chkBtn2">마무리 점검</button><button id="minutesBtn" class="primary">회의록 작성</button></div>
         <div id="micBar" class="micbar" hidden aria-live="polite">
           <span class="lbl">MIC</span><span id="micMeter" class="meter" title="마이크 입력 크기"><i></i></span><span id="micState" class="mstate">—</span>
-          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="cloudState" class="mstate"></span><span id="recCount" class="mcount"></span><button id="micCheckBtn" class="mini">마이크 점검</button>
+          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="cloudState" class="mstate"></span><span id="recIndicator" class="mstate recind" hidden></span><span id="recCount" class="mcount"></span><button id="micCheckBtn" class="mini">마이크 점검</button>
         </div>
       <div class="row tickrow">
         <div id="ticker" class="ticker"><span class="lbl">AUDIO ›</span><span id="live" class="txt idle">STANDBY</span></div>
@@ -319,6 +319,9 @@ NSE = NextStar Energy
         <label class="f">Gemini API 키 (aistudio.google.com/apikey 에서 받은 AIza…)<input id="sttKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza..."></label>
         <label class="f">받아쓰기 모델 (비우면 gemini-2.5-flash-lite)<input id="sttModel" spellcheck="false" list="sttModels" placeholder="gemini-2.5-flash-lite"></label>
         <datalist id="sttModels"><option value="gemini-2.5-flash-lite"></option><option value="gemini-3.8-flash"></option><option value="gemini-3-flash"></option></datalist>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="recMeet" type="checkbox" style="width:auto;flex:none"> 회의 녹음으로 화자 구분 — 회의 모드에서 녹음해 두었다가, 회의록을 쓸 때 Gemini로 누가 말했는지 나눔 (Gemini 키 필요, 1시간 약 11MB, 회의록 1건에 몇 센트)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="recDelete" type="checkbox" style="width:auto;flex:none"> 회의록이 확정되면 녹음 지우기 (권장)</label>
+        <div class="hint">녹음은 이 기기에만 저장되고 회의록을 쓸 때 한 번만 Gemini로 보냅니다. 녹음 전에 참석자에게 알려 주세요.</div>
         <div class="row"><button id="sttTest">Gemini 연결 확인</button><span id="sttMsg" class="hint" style="flex:1"></span></div>
         <div class="hint">Gemini는 마이크 게이지가 말소리를 들을 때만 소리를 보냅니다(조용할 땐 비용 없음). Safari와 Gemini가 같은 말을 5번 다르게 들으면 그 단어를 용어 사전에 자동으로 넣습니다.</div>
         <div class="row"><button id="micCheckBtn2">마이크 점검</button><span class="hint" style="flex:1">말을 못 알아들을 때: 마이크 문제인지, 음성 인식 문제인지, 둘이 부딪히는 건지 11초 만에 알려 줍니다.</span></div>
@@ -346,6 +349,7 @@ NSE = NextStar Energy
       <button id="minGo" class="primary">작성</button>
     </div>
     <div id="minStage" class="stagebar" hidden role="status" aria-live="polite"></div>
+    <div id="minSpk" class="spkbox" hidden></div>
     <div id="minReview" class="reviewbox" hidden>
       <b>자동 검증에서 남은 문제</b>
       <ul id="minIssues"></ul>

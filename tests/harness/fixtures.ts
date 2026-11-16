@@ -59,7 +59,7 @@ export const test = base.extend<Fixtures>({
       await expect(page.locator("html[data-docs='1']")).toHaveCount(1);
       if (opts.idbDocs) { // written the way the legacy app stored them, then the app is reloaded
         await page.evaluate((docs) => new Promise<void>((res) => {
-          const r = indexedDB.open("meeting-copilot", 1);
+          const r = indexedDB.open("meeting-copilot");
           r.onsuccess = () => { const tx = r.result.transaction("docs", "readwrite"); docs.forEach((d: any) => tx.objectStore("docs").put(d)); tx.oncomplete = () => { r.result.close(); res(); }; };
         }), opts.idbDocs);
         await page.reload();

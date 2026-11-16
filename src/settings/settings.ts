@@ -26,6 +26,8 @@ export const cfg = {
   dayLogOn: ls.get("ms.dayLogOff") !== "1",
   sttMode: ((): "safari" | "hybrid" | "cloud" => { const v = ls.get("ms.sttMode"); return v === "hybrid" || v === "cloud" ? v : "safari"; })(),
   sttModel: ls.get("ms.sttModel"),
+  recMeet: ls.get("ms.recMeetOff") !== "1",
+  recDelete: ls.get("ms.recKeep") !== "1",
   daySumOn: ls.get("ms.daySumOff") !== "1",
 };
 
@@ -62,6 +64,8 @@ export function initSettingsUI() {
   bindCheck("allDay", "allDay", "ms.allDay", true);
   bindCheck("dayLogOn", "dayLogOn", "ms.dayLogOff", false);
   bindCheck("daySumOn", "daySumOn", "ms.daySumOff", false);
+  bindCheck("recMeet", "recMeet", "ms.recMeetOff", false);
+  bindCheck("recDelete", "recDelete", "ms.recKeep", false);
   const wm = $("webMode"); wm.value = cfg.webMode;
   wm.addEventListener("change", () => { cfg.webMode = wm.value; ls.set("ms.webMode", wm.value); changed(); });
   const pw = $("powerMode"); pw.value = cfg.power;

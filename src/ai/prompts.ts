@@ -176,6 +176,8 @@ ${part}`;
 export interface MinutesIn {
   text: string; title: string; conv: boolean; hasFocus: boolean; template: string; hasPeople: boolean; hasAgenda: boolean; hasCarry: boolean;
   typeLabel: string; when: string; actualMin: number; plannedMin: number; facts: string; cards: string; past: string;
+  /** "[MM:SS] 이름(화자N): …" from the meeting recording, when there is one */
+  speakers?: string;
 }
 export function minutesPrompt(m: MinutesIn) {
   const focusRule = m.hasFocus ? `
@@ -196,11 +198,12 @@ export function minutesPrompt(m: MinutesIn) {
 ## 미결 사항 · 다음에 확인할 것${m.hasCarry ? "\n## 지난 회의 할 일 점검\n| 할 일 | 담당 | 상태 |" : ""}
 ## 지난 회의와 달라진 점
 (과거 회의록 발췌와 비교해 바뀐 합의가 있을 때만. 없으면 이 절은 빼세요.)`;
-  return `당신은 회의록 작성자입니다. 아래 [받아쓰기]는 실시간 음성 인식 기록을 맥락에 맞게 한 번 교정한 회의 대화 기록이며, 누가 말했는지는 구분되어 있지 않습니다. 이를 바탕으로 한국어 회의록을 Markdown으로 작성하세요.
+  const spk = !!m.speakers;
+  return `당신은 회의록 작성자입니다. 아래 [받아쓰기]는 실시간 음성 인식 기록을 맥락에 맞게 한 번 교정한 회의 대화 기록이며, 누가 말했는지는 구분되어 있지 않습니다.${spk ? " [화자별 기록]은 같은 회의의 녹음을 말한 사람별로 나눠 받아쓴 것입니다(이름은 추정이며 사용자가 확인함)." : ""} 이를 바탕으로 한국어 회의록을 Markdown으로 작성하세요.
 
 규칙
 - 원문에 근거한 내용만 쓰세요. 추측으로 채우지 마세요. 불분명하면 '(확인 필요)'를 붙이세요.
-- 발언자를 단정하지 마세요. 담당자와 기한은 대화에 실제로 이름·날짜가 나온 경우에만 채우고, 없으면 '미정'으로 쓰세요.
+${spk ? "- 누가 무엇을 말했는지는 [화자별 기록]을 근거로 쓰세요. 이름이 붙은 화자는 그 사람의 발언으로, 이름 없는 화자는 '화자N'으로 적으세요. 결정·할 일마다 제안하거나 맡은 사람을 적고, 기한은 대화에 날짜가 나온 경우에만(없으면 '미정')." : "- 발언자를 단정하지 마세요. 담당자와 기한은 대화에 실제로 이름·날짜가 나온 경우에만 채우고, 없으면 '미정'으로 쓰세요."}
 - (?)가 붙은 말은 확정되지 않은 표현이니 회의록에 옮길 때 '(확인 필요)'로 표시하세요.
 - 잡담·반복·추임새는 빼고, 결정과 숫자·일정은 빠짐없이 담으세요.
 - 문장은 간결한 개조식으로 쓰세요.
@@ -217,11 +220,11 @@ ${m.cards || "(없음)"}
 
 [과거 회의록 발췌 (참고용)]
 ${m.past}
-
+${spk ? `\n[화자별 기록]\n${m.speakers!.length > 80000 ? m.speakers!.slice(-80000) : m.speakers}\n` : ""}
 [받아쓰기]
 ${m.text}`;
 }
-export const verifyPrompt = (minutes: string, text: string) => `당신은 회의록 검수자입니다. [회의록]이 [받아쓰기]에 충실한지 검사하세요.
+export const verifyPrompt = (minutes: string, text: string, speakers = "") => `당신은 회의록 검수자입니다. [회의록]이 [받아쓰기]${speakers ? "와 [화자별 기록]" : ""}에 충실한지 검사하세요.${speakers ? " 발언자·담당자 이름은 [화자별 기록]에 그 이름으로 나오면 근거가 있는 것으로 봅니다." : ""}
 문제로 볼 것: 받아쓰기에 없는 내용(지어낸 사실), 숫자·날짜·이름·담당자 오류, 받아쓰기에 분명히 나온 결정·할 일·숫자의 누락, ⟦ ⟧ 표시가 그대로 남은 것, 깨진 형식.
 문제로 보지 않을 것: 표현 차이, 요약 수준, '(확인 필요)' 표시, 사소한 문체.
 JSON 하나만 출력: {"ok":true|false,"issues":["문제를 한 줄씩, 최대 6개"]}
@@ -229,7 +232,7 @@ ${glossBlock(text.slice(0, 4000), { defs: false, fullBase: false })}
 [회의록]
 ${minutes}
 
-[받아쓰기]
+${speakers ? `[화자별 기록]\n${speakers.slice(-60000)}\n\n` : ""}[받아쓰기]
 ${text.length > 100000 ? text.slice(-100000) : text}`;
 export const fixMinutesPrompt = (issues: string[], minutes: string, revised: string) => `[검수 결과]의 문제를 고쳐 회의록 전체를 다시 출력하세요. 받아쓰기에 근거한 내용만 쓰고, 근거가 없으면 지우거나 '(확인 필요)'로 표시하세요. 회의록 본문만 출력하세요.
 [검수 결과]
@@ -294,3 +297,14 @@ JSON 하나만 출력: {"title":"","children":[{"t":"","n":"","s":[""],"c":[{"t"
 
 [자료]
 ${material}`;
+
+/* ---------------- speakers (Gemini, whole meeting recording) ---------------- */
+export const SPK_MARK = "⟦화자⟧";
+export const speakersPrompt = (people: string[], hints: string[]) => `이 회의 녹음 전체를 말한 사람(화자)별로 나눠 받아쓰세요.
+- 줄마다 형식: [MM:SS] 화자N: 말한 내용   (MM:SS는 녹음 시작부터의 시각, N은 1부터. 같은 사람은 녹음 끝까지 같은 번호)
+- 한국어와 영어가 섞이면 들린 언어 그대로, 영어 용어는 영어 철자로. 숫자·단위는 아라비아 숫자로. 아래 [용어] 표기를 따르세요.
+- 추임새·잡음은 빼되 내용은 요약하지 말고 말한 그대로.
+- 맨 끝에 ${SPK_MARK} 를 쓰고 그 뒤에 JSON 한 줄: {"speakers":[{"id":"화자1","name":"추정 이름 또는 빈 문자열","why":"그렇게 본 근거 한 줄"}]}
+  이름은 [참석자] 명단과 대화 맥락(이름을 부르고 그 사람이 대답함, 자기소개 등)으로 확실할 때만. 모르면 "".
+[참석자] ${people.length ? people.join(", ") : "(명단 없음)"}
+[용어] ${hints.join(", ")}`;

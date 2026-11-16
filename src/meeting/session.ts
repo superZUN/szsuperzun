@@ -15,6 +15,8 @@ import { agenda, renderAgBar, updatePrepCount, plannedMin, minutesFacts, prepSig
 import { carry } from "./carry";
 import { renderTranscript, reconcileManual, annotatedTranscript, resetTranscriptView } from "../transcript";
 import { toggle } from "../controls";
+import { dropRecording, recKey } from "../speech/recorder";
+import { spk } from "../minutes/speakers";
 
 export const session = { prepAtMinutes: null as string | null, continueOk: false, lastSaved: "" };
 export const agLogForAnnotate = () => S.agLog;
@@ -29,7 +31,7 @@ function snapshot() {
     actions: S.actions, agIdx: S.agIdx, agLog: S.agLog, agAlerted: S.agAlerted, totAlert: S.totAlert,
     prep: { title: $("pTitle").value, dur: $("pDur").value, agenda: $("pAgenda").value, people: $("pPeople").value },
     minutesText: M.text, minutesForLen: M.forLen, minutesDocId: M.docId, mode: $("mode").value, minTitle: $("minTitle").value,
-    minutesKeyAt: M.keyAt, minTitleAuto: M.titleAuto, prepAtMinutes: session.prepAtMinutes, continueOk: session.continueOk, pendingFinal: M.pendingFinal, minStage: M.stage,
+    spk: spk.cur, minutesKeyAt: M.keyAt, minTitleAuto: M.titleAuto, prepAtMinutes: session.prepAtMinutes, continueOk: session.continueOk, pendingFinal: M.pendingFinal, minStage: M.stage,
     kw: [...kwMap.values()].slice(-80).map((e) => ({ k: e.k, at: e.at, last: e.last, count: e.count, origin: e.origin, defT: e.def && e.def.t, recall: e.recall, wiki: e.wiki, web: e.web && !e.web.pending ? e.web : null, ctx: e.ctx })),
   };
 }
@@ -46,6 +48,7 @@ export function restoreSession() {
   S.agIdx = s.agIdx ?? -1; S.agLog = s.agLog || []; S.agAlerted = s.agAlerted || {}; S.totAlert = s.totAlert || 0;
   $("pTitle").value = p.title || ""; $("pDur").value = p.dur || ""; $("pAgenda").value = p.agenda || ""; $("pPeople").value = p.people || "";
   M.text = s.minutesText || ""; M.forLen = s.minutesForLen ?? -1; M.docId = s.minutesDocId || null; if (s.mode) $("mode").value = s.mode; $("minTitle").value = s.minTitle || "";
+  spk.cur = s.spk || null;
   M.keyAt = s.minutesKeyAt || ""; M.titleAuto = s.minTitleAuto !== false; session.prepAtMinutes = s.prepAtMinutes ?? null; session.continueOk = !!s.continueOk; M.pendingFinal = s.pendingFinal || null;
   if (s.minStage) setStage(s.minStage.step, s.minStage.label, s.minStage.state === "run" ? "review" : s.minStage.state); if (M.pendingFinal) showReview(M.pendingFinal.issues || []);
   (s.kw || []).forEach((o: any) => { const def = o.defT ? [...BASE_TERMS, ...LIB_TERMS].find((x) => x.t === o.defT) || null : null; kwMap.set(o.k.toLowerCase(), { ...o, def }); }); renderKwBar();
@@ -59,7 +62,7 @@ export function restoreSession() {
 /** wipe the transcript and everything said (the 비우기 button) */
 export function clearTranscript() {
   S.segs = []; S.sentUpTo = 0; S.marks.forEach((m) => clearTimeout(m.timer)); S.marks = []; S.notes = []; S.focusAt = 0; $("markCount").textContent = "";
-  resetTranscriptView(); renderTranscript(); if (!$("rawView").hidden) $("rawView").textContent = ""; S.meetingStart = 0; clearMinutesState();
+  resetTranscriptView(); renderTranscript(); if (!$("rawView").hidden) $("rawView").textContent = ""; void dropRecording(recKey()); S.meetingStart = 0; clearMinutesState(); // the recording belongs to the meeting being cleared
 }
 /** wipe the last meeting; keepPrep keeps the 준비 fields (e.g. already filled in for the next meeting) */
 export function resetMeeting(keepPrep: boolean) {

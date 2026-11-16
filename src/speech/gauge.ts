@@ -10,7 +10,8 @@ import { cfg } from "../settings/settings";
 import { ls } from "../storage/ls";
 import { rs, restartRec, startRec } from "./recognizer";
 import { wakeUp } from "../power/standby";
-import { cloudAttach, cloudDetach, cloudOn, cloudLabel, cloud } from "./cloud";
+import { cloudAttach, cloudDetach, cloudOn, cloudLabel, cloud, sttKey } from "./cloud";
+import { recWanted, recInfo } from "./recorder";
 
 export const vad = {
   failed: false, pauseUntil: 0, ctx: null as AudioContext | null, stream: null as MediaStream | null, an: null as AnalyserNode | null, full: null as AnalyserNode | null,
@@ -20,7 +21,7 @@ export const gaugeState = { deafRestarts: 0, lastDeafFix: 0, quietSince: 0, last
 export const vadLive = () => !!vad.timer;
 
 export async function vadStart() {
-  if (!(cfg.vadOn || cloudOn()) || vad.failed || vad.timer || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return; // Gemini needs the microphone even with the gauge off
+  if (!(cfg.vadOn || cloudOn() || (cfg.recMeet && !!sttKey() && S.appMode === "meet")) || vad.failed || vad.timer || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return; // Gemini needs the microphone even with the gauge off
   const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return;
   try {
     vad.ctx = vad.ctx || new AC(); // created inside the tap, so iPad lets it run
@@ -73,6 +74,7 @@ export function renderGauge(force?: boolean) {
   else if (deaf) { rsEl.textContent = "소리는 들리는데 글자가 안 나옴"; rsEl.className = "mstate warn"; dot.className = "rdot warn"; }
   else { rsEl.textContent = now - rs.lastResultAt < 1200 ? "알아듣는 중" : "듣는 중"; rsEl.className = "mstate good"; dot.className = "rdot " + (now - rs.lastResultAt < 350 ? "hit" : "on"); }
   $("recCount").textContent = rs.restarts ? `다시 켬 ${rs.restarts}회` : "";
+  const ri = $("recIndicator"); if (ri) { const on = recWanted() && !!cloud.node; ri.hidden = !on; if (on) { const s = recInfo().sec; ri.textContent = `● 녹음 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; } }
   const cs = $("cloudState"); const cl = cfg.sttMode === "hybrid" ? cloudLabel() : cfg.sttMode === "cloud" && cloudOn() ? cloudLabel().replace("Gemini 대기", "") : ""; cs.textContent = cl ? "· " + cl : ""; cs.className = "mstate" + (cloud.failures ? " warn" : "");
 }
 function renderMeter() {

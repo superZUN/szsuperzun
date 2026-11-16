@@ -16,6 +16,7 @@ import { vad } from "./gauge";
 import { acceptCloudText, rs, startRec } from "./recognizer";
 import { renderTranscript } from "../transcript";
 import { recordSttDiff } from "../memory/learn";
+import { recFeed, flushPart } from "./recorder";
 import { ai } from "../ai/client";
 
 export type SttMode = "safari" | "hybrid" | "cloud";
@@ -35,7 +36,7 @@ let order = 0, nextEmit = 0; const done = new Map<number, () => void>(); let inf
 /* ---------- capture: an AudioWorklet (or ScriptProcessor) on the gauge's microphone source ---------- */
 const WORKLET = `class P extends AudioWorkletProcessor{constructor(){super();this.b=[];this.n=0}process(i){const c=i[0]&&i[0][0];if(c){this.b.push(new Float32Array(c));this.n+=c.length;if(this.n>=2048){const o=new Float32Array(this.n);let k=0;for(const x of this.b){o.set(x,k);k+=x.length}this.port.postMessage(o,[o.buffer]);this.b=[];this.n=0}}return true}}registerProcessor('jay-cap',P);`;
 export async function cloudAttach(ctx: AudioContext, src: AudioNode) {
-  if (!cloudOn() || cloud.node) return;
+  if (!(cloudOn() || cfg.recMeet && !!sttKey()) || cloud.node) return; // Gemini transcription and/or the meeting recording
   cloud.ctx = ctx; cloud.rate = ctx.sampleRate; cloud.state = "idle"; cloud.error = ""; cloud.failures = 0;
   try {
     await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" })));
@@ -47,10 +48,12 @@ export async function cloudAttach(ctx: AudioContext, src: AudioNode) {
   }
 }
 export function cloudDetach() {
-  if (curLen) finish(); try { cloud.node && cloud.node.disconnect(); } catch { /* gone */ }
+  flushPart(); if (curLen) finish(); try { cloud.node && cloud.node.disconnect(); } catch { /* gone */ }
   cloud.node = null; cloud.ctx = null; pre = []; preLen = 0; cur = []; curLen = 0; if (cloud.state !== "error") cloud.state = "off";
 }
 function onChunk(c: Float32Array) {
+  recFeed(c, cloud.rate);
+  if (!cloudOn()) return;
   if (!S.running || S.standby) { pre = []; preLen = 0; return; }
   const now = Date.now(), ms = (c.length / cloud.rate) * 1000;
   // the gauge's last moment of actual speech (its "speaking" flag lingers 1.2 s, too long to find the end of a phrase)

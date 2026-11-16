@@ -135,7 +135,7 @@ test.describe("넓게 찾기 (DEEP SCAN)", () => {
     await expect(card.locator(".code")).toHaveText("DEEP SCAN");
     await expect(page.locator("#status")).toHaveText("DEEP SCAN");
     await expect(card.locator(".body")).toContainText("같은 질문을 다시 하셔서");
-    await expect(card.locator(".body")).toContainText("③ 찾은 대목: 회의록·자료 1곳");
+    await expect(card.locator(".body")).toContainText(/③ 찾은 대목: 회의록·자료 [12]곳/); // (today's conversation log may hold the first question and answer too)
     await expect(page.locator("#field .callout.t-answer.deepdone .code")).toHaveText("RESPONSE · WIDE", { timeout: 6000 });
     await expect(page.locator("#field .callout.t-answer.deepdone .body")).toContainText("네, 장군님. 11월 12일까지 1차 샘플을 전달하기로 했습니다");
     await expect(page.locator("#status")).not.toHaveText("DEEP SCAN");

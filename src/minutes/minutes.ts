@@ -22,6 +22,8 @@ import { agenda, people, plannedMin, minutesFacts, prepSig } from "../meeting/pr
 import { carry, carryForward } from "../meeting/carry";
 import { annotatedTranscript, reconcileManual } from "../transcript";
 import { session } from "../meeting/session";
+import { diarize, namedText, renderSpeakers, spk, clearSpeakers } from "./speakers";
+import { dropRecording, recKey } from "../speech/recorder";
 
 export const M = { text: "", busy: false, forLen: -1, docId: null as string | null, keyAt: "", titleAuto: true, stage: null as any, pendingFinal: null as any };
 
@@ -72,17 +74,17 @@ async function reviseTranscript(ann: string, onProgress: (d: number, n: number) 
   for (let i = 0; i < parts.length; i += 3) await Promise.all([i, i + 1, i + 2].filter((k) => k < parts.length).map(one));
   return res.join("\n");
 }
-function buildMinutesPrompt(text: string, title: string) {
+function buildMinutesPrompt(text: string, title: string, speakers = "") {
   const cards = S.history.filter((d) => d.type !== "note" && d.type !== "mark" && d.type !== "web").slice(0, 30).reverse().map((d) => `- [${TYPE[d.type]}] ${d.title}: ${d.body}`).join("\n");
   return minutesPrompt({
     text, title, conv: S.appMode === "conv", hasFocus: !!(S.marks.length || S.notes.length), template: cfg.minTemplate, hasPeople: people().length > 0, hasAgenda: agenda().length > 0, hasCarry: carry.items.length > 0,
     typeLabel: S.appMode === "conv" ? "대화" : $("mode").selectedOptions[0].textContent, when: stamp(new Date(S.meetingStart || Date.now())),
     actualMin: S.meetingStart ? Math.round((Date.now() - S.meetingStart) / 60000) : 0, plannedMin: plannedMin(), facts: minutesFacts(), cards,
-    past: contextBlock(text.slice(0, 800) + " " + text.slice(-1200), 4),
+    past: contextBlock(text.slice(0, 800) + " " + text.slice(-1200), 4), speakers: speakers || undefined,
   });
 }
-async function verifyMinutes(minutes: string, text: string) {
-  const t = await aiCall(verifyPrompt(minutes, text), { maxTokens: 800, tier: "deep", effort: "low", kind: "minutes" });
+async function verifyMinutes(minutes: string, text: string, speakers = "") {
+  const t = await aiCall(verifyPrompt(minutes, text, speakers), { maxTokens: 800, tier: "deep", effort: "low", kind: "minutes" });
   const o = completeObjects(t).find((x) => typeof x.ok === "boolean");
   return o ? { ok: !!o.ok && !(o.issues || []).filter(Boolean).length ? true : !!o.ok, issues: (o.issues || []).filter(Boolean).slice(0, 6) as string[] } : { ok: false, issues: ["검증 결과를 읽지 못했습니다."] };
 }
@@ -101,19 +103,25 @@ export async function makeMinutes() {
   try {
     setStage(1, "대화 기록을 맥락에 맞게 교정하는 중");
     const ann = annotatedTranscript(), src = ann.length > 120000 ? ann.slice(-120000) : ann;
-    const revised = await reviseTranscript(src, (d, n) => setStage(1, `대화 기록을 맥락에 맞게 교정하는 중 (${d}/${n})`));
+    // the speaker split (from the meeting recording, if any) runs alongside the correction
+    let spkErr = "";
+    const [revised, sp] = await Promise.all([
+      reviseTranscript(src, (d, n) => setStage(1, `대화 기록을 맥락에 맞게 교정하는 중 (${d}/${n})`)),
+      diarize((t) => setStage(1, t)).catch((e: any) => { spkErr = e && e.code === "bad_key" ? "Gemini 키가 맞지 않아 화자를 나누지 못했습니다." : "화자 구분은 건너뛰었습니다" + (e && e.message ? ` (${e.message})` : "."); return null; }),
+    ]);
+    const speakers = sp ? namedText(sp) : ""; renderSpeakers(() => { M.keyAt = ""; void makeMinutes(); }); if (spkErr) $("minMsg").textContent = spkErr;
     setStage(2, "교정된 기록으로 회의록을 쓰는 중");
     const render = (t: string) => { M.text = t; out.innerHTML = mdToHtml(t); out.scrollTop = out.scrollHeight; };
-    let minutes = await aiCall(buildMinutesPrompt(revised, title), { maxTokens: 6000, onText: render, tier: deep ? "deep" : "fast", effort: deep ? "medium" : "low", kind: "minutes" }); render(minutes); out.scrollTop = 0;
+    let minutes = await aiCall(buildMinutesPrompt(revised, title, speakers), { maxTokens: 6000, onText: render, tier: deep ? "deep" : "fast", effort: deep ? "medium" : "low", kind: "minutes" }); render(minutes); out.scrollTop = 0;
     setStage(3, "회의록이 대화 내용과 맞는지 검증하는 중");
-    let v = await verifyMinutes(minutes, revised);
+    let v = await verifyMinutes(minutes, revised, speakers);
     if (!v.ok) {
       setStage(3, `문제 ${v.issues.length}건을 고치고 다시 검증하는 중`);
       minutes = await aiCall(fixMinutesPrompt(v.issues, minutes, revised), { maxTokens: 6000, onText: render, tier: deep ? "deep" : "fast", effort: "medium", kind: "minutes" }); render(minutes); out.scrollTop = 0;
-      v = await verifyMinutes(minutes, revised);
+      v = await verifyMinutes(minutes, revised, speakers);
     }
     M.forLen = S.segs.length; M.keyAt = minutesKey(); session.prepAtMinutes = prepSig(); session.continueOk = false;
-    M.pendingFinal = { id, title, minutes, revised, issues: v.issues };
+    M.pendingFinal = { id, title, minutes, revised, issues: v.issues, speakers };
     if (v.ok) finalizeRecord(); else showReview(v.issues);
   } catch (e: any) {
     const d = S.docs.find((x) => x.id === id); if (d) { d.status = "review"; d.issues = ["작성 중 오류: " + errText(e)]; saveLocal(d); renderDocs(); }
@@ -121,7 +129,7 @@ export async function makeMinutes() {
   }
   M.busy = false; $("minGo").disabled = false; updateEndBar();
 }
-const recordText = (p: any) => p.minutes.trim() + "\n\n---\n\n## 부록: 최종 대화 기록 (교정본)\n\n" + cleanMarkers(p.revised).trim() + "\n";
+const recordText = (p: any) => p.minutes.trim() + (p.speakers ? "\n\n---\n\n## 부록: 화자별 기록 (회의 녹음)\n\n" + p.speakers.trim() : "") + "\n\n---\n\n## 부록: 최종 대화 기록 (교정본)\n\n" + cleanMarkers(p.revised).trim() + "\n";
 export function finalizeRecord() {
   const p = M.pendingFinal; if (!p) return; const d = S.docs.find((x) => x.id === p.id);
   const rec: Doc = { id: p.id, name: p.title + " (회의록)", text: recordText(p), added: d ? d.added : Date.now(), status: "final" };
@@ -129,6 +137,7 @@ export function finalizeRecord() {
   if (d) { Object.assign(d, rec); delete d.issues; delete d.replaces; saveLocal(d); } else { S.docs.push(rec); saveLocal(rec); }
   void pushDoc(d || rec); rebuildIndex(); carryForward(p.title); M.pendingFinal = null;
   setStage(4, server.passcode ? "검증을 통과해 회의록 탭과 서버에 저장했습니다." : "검증을 통과해 회의록 탭에 저장했습니다.", "done");
+  if (cfg.recDelete && p.speakers) void dropRecording(recKey()); // the recording has served its purpose (the speaker split stays, so names can still be fixed)
   $("minReview").hidden = true; $("minMsg").textContent = "최종 회의록으로 확정했습니다."; $("minActions").hidden = false;
 }
 export function showReview(issues: string[]) {
@@ -138,6 +147,7 @@ export function showReview(issues: string[]) {
   $("minActions").hidden = false; $("minMsg").textContent = "검토 후 확정해 주세요.";
 }
 export function clearMinutesState() {
+  clearSpeakers();
   M.text = ""; M.forLen = -1; M.docId = null; M.pendingFinal = null; M.stage = null; M.keyAt = ""; M.titleAuto = true;
   $("minTitle").value = ""; $("minStage").hidden = true; $("minReview").hidden = true;
   $("minOut").innerHTML = '<div class="note">\'작성\'을 누르면 지금까지 받아쓴 대화로 회의록을 만듭니다.</div>'; $("minActions").hidden = true;
