@@ -33,6 +33,7 @@ import { ai } from "./ai/client";
 import { initDayLog, flushLog, LOG_TIMING } from "./memory/daylog";
 import { initSummary, catchUp } from "./memory/summary";
 import { renderLearn } from "./memory/learn";
+import { initMindmap, mindState } from "./mindmap/mindmap";
 import { cfg } from "./settings/settings";
 import { usage } from "./ai/usage";
 import { micCheckTiming } from "./speech/miccheck";
@@ -54,7 +55,7 @@ initTranscriptUI(() => scheduleAnalyze());
 initRecognizer(); initGauge(); initMicCheck(); initStandby();
 initTopic(); initAnalyzeTicker(); initKeywords(); initAsk(); preloadMermaid();
 initMinutesUI(); initPrep(() => showTab("tabPrep")); initActions(); initCarry(); initTasks(); initSession();
-initDayLog(); initSummary(); renderLearn();
+initDayLog(); initSummary(); renderLearn(); initMindmap();
 
 setStatus(); refreshNote(); updateFixStat();
 const restored = restoreSession(); renderAgBar(); updatePrepCount(); renderActions(); initialSnapshot();
@@ -66,6 +67,6 @@ if (!restored) [
 if (!ai.apiKey) showTab("tabSet");
 void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); });
 /** read-only window into the app for the automated tests (and for debugging in the console) */
-(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp };
+(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState };
 document.documentElement.dataset.ready = "1";
 void $;

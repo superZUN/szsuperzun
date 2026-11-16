@@ -281,3 +281,16 @@ export const daySummaryPrompt = (day: string, log: string) => `아래 [하루 �
 ${glossBlock("", { defs: false })}
 [하루 대화 기록]
 ${log}`;
+
+/* ---------------- mind map of everything said ---------------- */
+export const mindmapPrompt = (rangeLabel: string, scope: string, material: string) => `아래 [자료]는 사용자(배터리 셀 Formation·EOL 엔지니어)의 ${rangeLabel} 회의록·하루 요약·대화 기록입니다(음성 인식이라 오인식이 섞여 있음).
+이 내용을 한눈에 보는 마인드맵으로 정리하세요. 범위: ${scope === "work" ? "업무 이야기만" : scope === "daily" ? "일상 이야기만(업무는 빼기)" : "업무와 일상 모두"}.
+- 가운데 주제(title)는 기간을 한 줄로 요약한 말.
+- 첫 단계 가지 5~9개: 프로젝트·고객사·품질 이슈·일정·사람·일상처럼 실제로 많이 나온 큰 주제. 비슷한 것은 하나로 합치세요.
+- 각 가지 아래 2~6개, 최대 4단계. 결정·숫자·날짜·담당은 잎(leaf)에 구체적으로.
+- t(라벨)는 18자 이내 명사형, n(설명)은 한 문장(선택), s는 근거가 된 자료 이름 목록(<<이름>>에 있는 것, 최대 3개).
+- 자료에 있는 것만. 지어내지 마세요.
+JSON 하나만 출력: {"title":"","children":[{"t":"","n":"","s":[""],"c":[{"t":"","n":"","s":[""],"c":[]}]}]}
+
+[자료]
+${material}`;

@@ -25,6 +25,7 @@
     <button role="tab" id="tabPrep" aria-selected="false">준비 <span id="prepCount" class="num"></span></button>
     <button role="tab" id="tabKb" aria-selected="false">회의록 <span id="kbCount" class="num">0</span></button>
     <button role="tab" id="tabTodo" aria-selected="false">할 일 <span id="todoCount" class="num"></span></button>
+    <button role="tab" id="tabMind" aria-selected="false">마인드맵</button>
     <button role="tab" id="tabSet" aria-selected="false">설정</button>
   </div>
 
@@ -182,6 +183,28 @@ IR NG 개선 대책 15
       <div id="todoList" class="tlist"></div>
       <div id="todoUndo" class="tundo" hidden role="status"><span id="todoUndoMsg"></span><button id="todoUndoBtn">되돌리기</button></div>
       <div class="hint">체크하면 끝낸 일로 옮겨지고, 결과를 한 줄 적을 수 있습니다. 할 일을 누르면 결과·담당·기한을 고칠 수 있습니다. 회의 중 찾은 할 일도 자동으로 여기에 모입니다. <span id="todoSync"></span></div>
+    </div>
+  </section>
+
+  <section id="mindView" class="view" hidden>
+    <div class="mind">
+      <div class="row wrap mbar">
+        <span class="mono mlbl">MIND MAP</span>
+        <div class="seg" role="tablist" aria-label="기간">
+          <button role="tab" data-range="today" aria-selected="false">오늘</button><button role="tab" data-range="7" aria-selected="true">7일</button><button role="tab" data-range="30" aria-selected="false">30일</button><button role="tab" data-range="all" aria-selected="false">전체</button>
+        </div>
+        <select id="mmScope" aria-label="범위"><option value="all">회의·대화 전체</option><option value="work">업무만</option><option value="daily">일상만</option></select>
+        <button id="mmMake" class="primary">만들기</button>
+      </div>
+      <div class="row wrap mbar2">
+        <span id="mmMeta" class="hint" style="flex:1 1 220px"></span>
+        <button id="mmExpand">모두 펼치기</button><button id="mmCollapse">접기</button><button id="mmFit">맞춤</button><button id="mmPng">PNG 저장</button><button id="mmCopy">개요 복사</button>
+      </div>
+      <div id="mmView" class="mmview" aria-label="마인드맵">
+        <svg id="mmSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="mmEmpty" class="note mmempty">회의록·하루 요약·대화 기록·지금 받아쓰기를 모아 주제별 마인드맵을 만듭니다. 기간과 범위를 고르고 '만들기'를 누르세요.</div>
+      </div>
+      <div class="hint">가지를 누르면 펼치기/접기, 주제를 누르면 관련 대목과 '이것에 대해 질문'. 끌어서 둘러보고, 두 손가락이나 ctrl+휠로 확대합니다.</div>
     </div>
   </section>
 
