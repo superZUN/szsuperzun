@@ -10,7 +10,7 @@ import { cfg } from "../settings/settings";
 import { addNode } from "../hud/cards";
 import { retrieveScored } from "../library/docs";
 import { meetingBlock } from "../meeting/prep";
-import { actionLine, sameAction } from "../meeting/actions";
+import { actionLine, sameAction, addAction } from "../meeting/actions";
 import { reconcileManual, userFocusBlock } from "../transcript";
 import { addKeyword } from "./keywords";
 import { aiTopic } from "./topic";
@@ -49,11 +49,12 @@ export async function analyze(force: boolean) {
         if (!visAuto() || !c.title) continue; S.visLast = Date.now(); const k = routeVisual(c.title + " " + (c.body || "")) || "diagram";
         showVisual(k === "photo" ? "photo" : k, k === "photo" ? c.title : c.title + (c.body ? " — " + c.body : ""), recent, { title: c.title }); S.shownTitles.push(c.title); continue;
       }
-      if (c.type === "action") { // changed: only a card; it goes to 할 일 when the user taps "할 일에 추가"
+      if (c.type === "action") { // added to 할 일 right away (the user deletes with ✕ if it was wrong); the card says so
         if (daily) continue; const text = String(c.title || c.body || "").trim(); if (!text) continue;
         if (S.actions.some((a) => sameAction(a.text, text)) || S.history.some((d) => d.act && sameAction(d.act.text, text))) continue;
-        const act = { text, owner: String(c.owner || "").trim(), due: String(c.due || "").trim() };
-        addNode({ type: "action", title: text, body: actionLine(act) + "\n눌러서 '할 일에 추가'", act });
+        const act = { text, owner: String(c.owner || "").trim(), due: String(c.due || "").trim(), added: true };
+        addAction({ text: act.text, owner: act.owner, due: act.due, src: "ai" });
+        addNode({ type: "action", title: text, body: actionLine(act) + "\n할 일에 자동 추가됨", act });
       }
       else { if (!c.body) continue; addNode(c); }
       S.shownTitles.push(c.title || c.body.slice(0, 20));

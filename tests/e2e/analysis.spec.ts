@@ -23,14 +23,12 @@ test.describe("실시간 분석", () => {
     await expect(page.locator("#kwList")).toContainText("탭 용접");
     const actCard = real(page).filter({ hasText: "탭 용접 저항 재측정" });
     await expect(actCard).toContainText("담당 박지은 · 기한 11/20");
-    // AI-found actions are only suggested: nothing goes to 할 일 until the user taps "할 일에 추가"
-    await expect(page.locator("#actCount")).toHaveText("0");
-    expect(await app(page, "A.tasks.filter(t => !t.deleted).length")).toBe(0);
-    await actCard.click(); await page.getByRole("button", { name: "할 일에 추가", exact: true }).click();
+    // AI-found actions go to 할 일 on their own — no question, no button
+    await expect(actCard).toContainText("할 일에 자동 추가됨");
     await expect(page.locator("#actCount")).toHaveText("1");
-    expect(await app(page, "A.tasks.filter(t => !t.deleted).map(t => t.text)")).toContain("탭 용접 저항 재측정");
+    expect(await app(page, "A.tasks.filter(t => !t.deleted).map(t => ({ text: t.text, owner: t.owner, due: t.due }))")).toEqual([{ text: "탭 용접 저항 재측정", owner: "박지은", due: "11/20" }]);
+    await actCard.click();
     await expect(page.getByRole("button", { name: "할 일에 추가", exact: true })).toHaveCount(0);
-    await expect(page.locator("#focusCard .body")).toContainText("할 일에 추가됨");
     const c = ai.calls.find(isAnalysis)!;
     expect(c.prompt).toContain("[새로 들어온 부분]");
     expect(c.system).toContain("질문을 제안하지 말 것");

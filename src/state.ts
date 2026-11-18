@@ -8,7 +8,7 @@ export interface CardImg { src?: string; full?: string; title?: string; credit?:
 export interface CardData {
   id: number; type: string; title: string; body: string; source: string; links: { t: string; u: string }[]; kw: string;
   img: CardImg | null; example?: boolean; time: string; deep?: boolean; dismissed?: boolean; bx?: number; by?: number; bpin?: boolean;
-  /** an action the AI found: shown as a card, added to 할 일 only when the user taps "할 일에 추가" */
+  /** an action the AI found: added to 할 일 automatically and shown as a card (older saved cards may still be un-added) */
   act?: { text: string; owner: string; due: string; added?: boolean };
   /** a weekly mind map card: the archive id it opens */
   mm?: string;
