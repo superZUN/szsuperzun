@@ -50,7 +50,7 @@ export const test = base.extend<Fixtures>({
   },
   open: async ({ page, errors }, use) => {
     await use(async (opts = {}) => {
-      const storage = { ...(opts.key ? { "ms.key.anthropic": opts.key === true ? "sk-test" : opts.key } : {}), ...(opts.storage || {}) };
+      const storage = { "ms.briefOff": "1", "ms.reportOff": "1", ...(opts.key ? { "ms.key.anthropic": opts.key === true ? "sk-test" : opts.key } : {}), ...(opts.storage || {}) };
       if (Object.keys(storage).length) {
         await page.addInitScript((s) => { if (!sessionStorage.getItem("__seeded")) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v as string); sessionStorage.setItem("__seeded", "1"); } }, storage);
       }

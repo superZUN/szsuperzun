@@ -23,6 +23,7 @@ import { pauseRec } from "./speech/recognizer";
 import { renderLearn } from "./memory/learn";
 import { renderMind } from "./mindmap/mindmap";
 import { initMeetingType } from "./meeting/mtype";
+import { renderWork } from "./work/work";
 
 export function setStatus() {
   const s = $("status"); s.className = "status" + (S.busy ? " busy" : S.running ? " on" : "");
@@ -44,10 +45,10 @@ export async function toggle() {
   }
   wake(1500);
 }
-const TABS: Record<string, string> = { tabLive: "liveView", tabPrep: "prepView", tabKb: "kbView", tabTodo: "todoView", tabMind: "mindView", tabSet: "setView" };
+const TABS: Record<string, string> = { tabLive: "liveView", tabWork: "workView", tabPrep: "prepView", tabKb: "kbView", tabTodo: "todoView", tabMind: "mindView", tabSet: "setView" };
 export function showTab(id: string) {
   Object.entries(TABS).forEach(([t, v]) => { $(v).hidden = t !== id; $(t).setAttribute("aria-selected", String(t === id)); });
-  if (id === "tabPrep") renderCarry(); if (id === "tabTodo") { renderTodo(); void pullTasks(); } if (id === "tabKb" && Date.now() - lastSync > 20000) void syncDocsNow(false); if (id === "tabSet") { renderUsage(); renderLearn(); } if (id === "tabMind") renderMind();
+  if (id === "tabPrep") renderCarry(); if (id === "tabTodo") { renderTodo(); void pullTasks(); } if (id === "tabKb" && Date.now() - lastSync > 20000) void syncDocsNow(false); if (id === "tabSet") { renderUsage(); renderLearn(); } if (id === "tabMind") renderMind(); if (id === "tabWork") renderWork();
 }
 function setInMode(m: "memo" | "ask" | "act") {
   ([["memo", "modeMemo", "memoInput", "memoAdd"], ["ask", "modeAsk", "askInput", "askBtn"], ["act", "modeAct", "actInput", "actAdd"]] as const).forEach(([k, t, i, b]) => { const on = k === m; $(t).setAttribute("aria-selected", String(on)); $(i).hidden = !on; $(b).hidden = !on; });

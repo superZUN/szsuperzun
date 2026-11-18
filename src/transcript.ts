@@ -41,11 +41,14 @@ export function reconcileManual() {
   taShown = v;
 }
 export function resetTranscriptView() { taShown = ""; lastFinalSeg = null; $("transcript").value = ""; }
+let uttHook: ((s: Seg) => void) | null = null;
+/** voice commands look at every finished sentence */
+export const setUtteranceHook = (f: (s: Seg) => void) => { uttHook = f; };
 export function addUtterance(t: string, o: { at?: number; fix?: string; awaitCloud?: boolean } = {}) {
   const s: Seg = { raw: t, fix: o.fix ?? (o.awaitCloud || fixActive() ? null : t), at: o.at ?? Date.now(), ...(o.awaitCloud ? { awaitCloud: true } : {}), ...(o.fix != null ? { cloud: true } : {}) };
   // a sentence restored late (Gemini) goes where it was said
   let i = S.segs.length; while (i > 0 && S.segs[i - 1].at > s.at) i--; S.segs.splice(i, 0, s); if (i < S.sentUpTo) S.sentUpTo++;
-  lastFinalSeg = s; logSeg(s); renderTranscript(); queueFix(); return s;
+  lastFinalSeg = s; logSeg(s); renderTranscript(); queueFix(); if (uttHook) try { uttHook(s); } catch { /* a command must never break transcription */ } return s;
 }
 
 /* ---------- memo + highlight ---------- */

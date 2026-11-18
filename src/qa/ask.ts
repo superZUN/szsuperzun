@@ -15,6 +15,7 @@ import { bestSentence } from "../analysis/keywords";
 import { routeVisual, showVisual, visSubject } from "./visual";
 import { isRepeat, deepAsk, PAST_Q, DEEP_MARK } from "./deep";
 import { logLine } from "../memory/daylog";
+import { askAll, WORK_Q } from "../work/work";
 
 const Q_STOP = new Set(["아까", "방금", "그거", "이거", "저거", "뭐라", "라고", "했지", "했었", "었지", "는데", "그럼", "얼마", "언제", "어떻", "떻게", "뭐였", "였지", "무슨", "누가", "어디"]);
 /** question tokens: Korean bigrams (minus question filler) + Latin words of 2+ letters, so short codes like IR / NG count */
@@ -54,6 +55,8 @@ export async function ask(qIn?: string) {
     const weak = PAST_Q.test(q) && !early && !(quick[0] && (quick[0].n >= 3 || quick[0].s >= 3)) && (index.chunks.length > 0 || t0 > 0);
     if (repeat || weak) { const node = addNode({ type: "answer", title: q, body: "…" }); void deepAsk(q, node, { reason: repeat ? "같은 질문을 다시 하셔서" : "빠른 검색에서 관련 대목을 못 찾아서", tail, canSearch }); return; }
   }
+  // a question about the 할 일 list or a past period (when not about what was just said): every record, by date
+  if (ai.apiKey && !route && WORK_Q.test(q) && !/아까|방금|지금\s*(얘기|말|회의)/.test(q)) { const node = addNode({ type: "answer", title: q, body: "…" }); await askAll(q, { set: (t) => node.setBody(withLead(t)) }); return; }
   // 2) matching passages from saved minutes, instantly
   if (index.chunks.length) {
     const seen = new Set<string>(), cv = dailyTalk();

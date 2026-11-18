@@ -22,6 +22,7 @@
   </header>
   <div class="tabs" role="tablist">
     <button role="tab" id="tabLive" aria-selected="true">실시간</button>
+    <button role="tab" id="tabWork" aria-selected="false">업무</button>
     <button role="tab" id="tabPrep" aria-selected="false">준비 <span id="prepCount" class="num"></span></button>
     <button role="tab" id="tabKb" aria-selected="false">회의록 <span id="kbCount" class="num">0</span></button>
     <button role="tab" id="tabTodo" aria-selected="false">할 일 <span id="todoCount" class="num"></span></button>
@@ -171,6 +172,40 @@ IR NG 개선 대책 15
     </div>
   </section>
 
+  <section id="workView" class="view" hidden>
+    <div class="kb work">
+      <div class="panel">
+        <h2>Brief<span>아침 브리핑 · <b id="briefDate"></b></span></h2>
+        <div id="briefTasks" class="btasks"></div>
+        <div id="briefOut" class="minout"></div>
+        <div class="row"><span id="briefMsg" class="hint" style="flex:1" aria-live="polite"></span><button id="briefMake">브리핑 만들기</button></div>
+      </div>
+      <div class="panel">
+        <h2>Ask<span>Jay에게 묻기</span></h2>
+        <div class="row"><input id="workAsk" placeholder="지난주 박지은 님과 뭐 하기로 했지?" enterkeyhint="send" aria-label="Jay에게 묻기"><button id="workAskBtn" class="primary">묻기</button></div>
+        <div id="workChips" class="chips wrapchips"><button data-q="오늘 해야 할 일 중요한 순서로 알려줘">오늘 할 일</button><button data-q="기한 지난 할 일 정리해줘">밀린 일</button><button data-q="어제 회의와 대화에서 결정된 것 정리해줘">어제 결정 사항</button><button data-q="이번 주에 한 일 요약해줘">이번 주 요약</button></div>
+        <div id="workAnswer" class="wanswers" aria-live="polite"></div>
+        <div class="hint">회의록·하루 요약·대화 기록·할 일 전체에서 찾아 답합니다. '어제', '지난주', '11월 3일'처럼 날짜를 말하면 그 기간의 기록을 봅니다.</div>
+      </div>
+      <div class="panel">
+        <h2>Weekly<span>주간 업무보고</span></h2>
+        <div class="row wrap"><select id="wrSel" aria-label="주간 업무보고 목록" style="flex:1 1 140px"></select><button id="wrMake" class="primary">이번 주 보고서 쓰기</button><button id="wrCopy">복사</button><button id="wrSave">내려받기</button></div>
+        <div id="wrMsg" class="hint" aria-live="polite"></div>
+        <div id="wrOut" class="minout"></div>
+      </div>
+      <div class="panel">
+        <h2>Voice<span>음성 명령</span></h2>
+        <div class="note">듣는 중에 문장을 <b>"제이,"</b>로 시작하면 명령으로 알아듣습니다.</div>
+        <ul class="vlist note">
+          <li><b>할 일</b> — "제이, 금요일까지 견적서 보내기 할 일에 추가해 줘" · "제이, 박지은 님이 샘플 재측정 추가해 줘"</li>
+          <li><b>메모</b> — "제이, 샘플 수량 300개 메모해 둬" · "제이, 방금 거 메모해 줘"(바로 앞 문장을 메모)</li>
+          <li><b>질문</b> — "제이, 오늘 할 일 뭐야?" · "제이, 지난주 고객사 회의에서 납기 어떻게 됐지?"</li>
+        </ul>
+        <div class="hint">기한은 '오늘·내일·모레', '금요일', '다음 주 화요일', '11월 20일', '11/20'처럼 말하면 날짜로 바뀝니다. 끄려면 설정 탭 → '하루 기록·업무 비서'.</div>
+      </div>
+    </div>
+  </section>
+
   <section id="todoView" class="view" hidden>
     <div class="todo">
       <div class="row tadd"><input id="todoInput" placeholder="할 일 추가 — 할 일 / 담당 / 기한 (예: 샘플 재측정 / 박지은 / 11/20)" aria-label="할 일 추가" enterkeyhint="done"><button id="todoAdd" class="primary">추가</button></div>
@@ -301,9 +336,12 @@ NSE = NextStar Energy
         <div class="hint">일상 대화에서는 분석을 두 배 드물게 합니다. Claude는 매번 같은 지시문·용어 사전 부분을 캐시해 입력 비용을 줄입니다. 토큰 수는 AI가 알려 준 값이 없으면 글자 수로 어림합니다.</div>
       </div>
       <div class="panel">
-        <h2>Memory<span>하루 기록과 학습</span></h2>
+        <h2>Memory<span>하루 기록·업무 비서</span></h2>
         <label class="row" style="gap:8px;font-size:13.5px"><input id="dayLogOn" type="checkbox" style="width:auto;flex:none"> 하루 대화 기록 — 들은 말·메모·질문과 답을 날짜별 '대화 기록'으로 저장 (회의록 탭, 서버 암호가 있으면 서버에도)</label>
         <label class="row" style="gap:8px;font-size:13.5px"><input id="daySumOn" type="checkbox" style="width:auto;flex:none"> 하루 요약 자동 — 하루가 지나면 AI가 그날의 결정·약속·기억할 것을 요약 (하루 1번, 소액)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="briefOn" type="checkbox" style="width:auto;flex:none"> 아침 브리핑 자동 — 매일 아침 처음 열 때 어제 기록과 할 일로 오늘 챙길 것을 정리 (하루 1번, 소액)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="reportOn" type="checkbox" style="width:auto;flex:none"> 주간 업무보고 자동 — 금요일 오후 3시 이후 이번 주 보고서를 작성 (주 1번)</label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="voiceOn" type="checkbox" style="width:auto;flex:none"> 음성 명령 — "제이,"로 시작하는 말로 할 일·메모·질문</label>
         <div class="row" style="margin-top:6px"><b style="flex:1;font-size:13.5px">학습한 용어 제안 <span id="learnCount" class="num"></span></b></div>
         <div id="learnBox" class="learnbox"></div>
         <div class="hint">자주 틀리게 받아써지는 말과 새로 나온 이름·용어를 모았습니다. '등록'을 누르면 용어 사전에 들어가 인식·교정·분석이 더 정확해집니다.</div>

@@ -49,7 +49,10 @@ option{background:#061218;color:var(--ink)}
 select.lang{width:auto;flex:none;font-size:12px;padding:6px 8px;font-family:var(--font-mono);letter-spacing:.08em}
 
 /* tabs */
-.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{white-space:nowrap;flex:none}
+@media (max-width:560px){.tabs{gap:13px}.tabs button{font-size:13.5px}}
 .tabs button{clip-path:none;border:0;background:none;padding:8px 0 9px;color:var(--muted);font-size:14px;position:relative}
 .tabs button:hover{color:var(--ink-2);background:none}
 .tabs button[aria-selected="true"]{color:var(--ink)}
@@ -381,3 +384,18 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 .mtypes{flex:1 1 auto;flex-wrap:wrap}
 .mtypes button{font-size:13px;padding:7px 12px;white-space:nowrap}
 body.conv .mtypes{display:none}
+
+/* 업무 tab */
+.work .panel h2 b{font-weight:500;color:var(--ink-2)}
+.btasks{display:flex;flex-direction:column;gap:8px}
+.bgroup{display:flex;flex-direction:column;gap:3px}
+.bhead{margin-bottom:2px}
+.bitem{font-size:13.5px;line-height:1.45;padding-left:10px;border-left:1px solid var(--line-2)}
+.wrapchips{flex-wrap:wrap;overflow:visible}
+.wanswers{display:flex;flex-direction:column;gap:10px}
+.waq{display:flex;flex-direction:column;gap:4px}
+.wq{font-size:13px;color:var(--cy)}
+.wq::before{content:"Q  ";font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+.wa{font-size:13.5px}
+.vlist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+#briefOut:empty,#wrOut:empty{display:none}

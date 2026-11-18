@@ -29,6 +29,9 @@ export const cfg = {
   recMeet: ls.get("ms.recMeetOff") !== "1",
   recDelete: ls.get("ms.recKeep") !== "1",
   daySumOn: ls.get("ms.daySumOff") !== "1",
+  briefOn: ls.get("ms.briefOff") !== "1",
+  reportOn: ls.get("ms.reportOff") !== "1",
+  voiceOn: ls.get("ms.voiceOff") !== "1",
 };
 
 /** analysis pacing: how long to wait after speech stops, the minimum gap between calls, how much new text, and a forced interval */
@@ -64,6 +67,9 @@ export function initSettingsUI() {
   bindCheck("allDay", "allDay", "ms.allDay", true);
   bindCheck("dayLogOn", "dayLogOn", "ms.dayLogOff", false);
   bindCheck("daySumOn", "daySumOn", "ms.daySumOff", false);
+  bindCheck("briefOn", "briefOn", "ms.briefOff", false);
+  bindCheck("reportOn", "reportOn", "ms.reportOff", false);
+  bindCheck("voiceOn", "voiceOn", "ms.voiceOff", false);
   bindCheck("recMeet", "recMeet", "ms.recMeetOff", false);
   bindCheck("recDelete", "recDelete", "ms.recKeep", false);
   const wm = $("webMode"); wm.value = cfg.webMode;

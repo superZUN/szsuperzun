@@ -308,3 +308,53 @@ export const speakersPrompt = (people: string[], hints: string[]) => `이 회의
   이름은 [참석자] 명단과 대화 맥락(이름을 부르고 그 사람이 대답함, 자기소개 등)으로 확실할 때만. 모르면 "".
 [참석자] ${people.length ? people.join(", ") : "(명단 없음)"}
 [용어] ${hints.join(", ")}`;
+
+/* ---------------- 업무 tab: morning briefing, weekly report, questions over every record ---------------- */
+const ROLE = "사용자(배터리 셀 Formation·EOL 엔지니어)";
+export const briefPrompt = (o: { today: string; weekday: string; tasks: string; lastDay: string; lastText: string }) => `오늘은 ${o.today}(${o.weekday})입니다. ${ROLE}의 아침 브리핑을 한국어 Markdown으로 짧게 쓰세요. 출근길에 1분 안에 읽을 분량입니다.
+## 오늘 꼭 챙길 것
+(기한 지남·오늘·내일 기한인 할 일과, 어제 기록에서 오늘 해야 한다고 한 것 — 최대 5개, 중요한 순)
+## ${o.lastDay ? o.lastDay + " " : ""}핵심
+(결정·약속·숫자 위주 최대 4개)
+## 오늘 준비하면 좋은 것
+(회의 준비, 확인할 자료, 연락할 사람 — 최대 3개, 근거가 있을 때만)
+규칙: [할 일]과 [지난 기록]에 있는 것만 쓰고 지어내지 마세요. 해당 없는 절은 '- 없음'. 개조식, 한 줄에 한 가지, 담당·기한·숫자는 그대로.
+[할 일]
+${o.tasks || "(없음)"}
+[지난 기록${o.lastDay ? " — " + o.lastDay : ""}]
+${o.lastText || "(없음)"}`;
+
+export const weeklyReportPrompt = (o: { label: string; material: string; done: string; added: string; open: string }) => `아래는 ${ROLE}의 ${o.label} 한 주 동안의 회의록·하루 요약·대화 기록(음성 인식이라 오인식이 섞여 있음)과 할 일 목록입니다.
+이것으로 팀장에게 낼 '주간 업무보고'를 한국어 Markdown으로 쓰세요. 회사 보고서 문체(~함, ~예정)로 간결하게.
+# 주간 업무보고 (${o.label})
+## 1. 이번 주 요약
+(3줄 이내)
+## 2. 주요 업무 진행
+(업무·프로젝트·고객사별로 묶어 '- 항목: 진행 내용 → 결과/현황' — 숫자·날짜·담당 그대로)
+## 3. 회의·결정 사항
+## 4. 완료한 일
+## 5. 다음 주 계획
+(진행 중인 할 일과 기록에 나온 다음 단계)
+## 6. 이슈·리스크 / 지원 요청
+규칙: 자료에 있는 것만 쓰고 지어내지 마세요. 일상·사적인 이야기는 빼세요. 불확실하면 '(확인 필요)'. 해당 없는 절은 '- 없음'.
+[이번 주 끝낸 할 일]
+${o.done || "(없음)"}
+[이번 주 새로 생긴 할 일]
+${o.added || "(없음)"}
+[진행 중인 할 일]
+${o.open || "(없음)"}
+[자료]
+${o.material}`;
+
+export const askAllPrompt = (o: { q: string; now: string; tasks: string; material: string; span: string; current: string; prev: string }) => ({
+  system: `당신은 ${ROLE}의 업무 비서 Jay입니다. 사용자의 회의록·하루 요약·대화 기록·할 일 목록을 근거로 질문에 답합니다.
+규칙: 기록에 있는 것만 근거로 답하고, 답 끝에 근거를 '(근거: 자료 이름 또는 날짜)'로 짧게 붙이세요. 기록에서 찾지 못하면 지어내지 말고 '기록에서 찾지 못했어요'라고 말한 뒤 어디를 보면 될지 한 줄로 제안하세요.
+날짜·숫자·담당·기한은 그대로. 한국어로 짧고 바로 쓸 수 있게 — 목록이 필요하면 개조식. 할 일을 묻는 질문은 [할 일]에서 기한 순으로.`,
+  prompt: `지금: ${o.now}
+${o.prev ? `[앞선 질문과 답]\n${o.prev}\n` : ""}[할 일]
+${o.tasks || "(없음)"}
+${o.current ? `[지금 진행 중인 대화]\n${o.current}\n` : ""}[기록${o.span ? " — " + o.span : ""}]
+${o.material || "(관련 기록 없음)"}
+
+[질문] ${o.q}`,
+});

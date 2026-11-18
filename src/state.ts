@@ -12,6 +12,8 @@ export interface CardData {
   act?: { text: string; owner: string; due: string; added?: boolean };
   /** a weekly mind map card: the archive id it opens */
   mm?: string;
+  /** a card that opens a tab when tapped (briefing, weekly report) */
+  go?: string;
 }
 export interface Action { id: number; text: string; owner: string; due: string; src: string; at: number; taskId?: string }
 export interface Doc {
@@ -20,7 +22,7 @@ export interface Doc {
   updatedAt?: number; dirty?: boolean;
 }
 /** day logs ("day-YYYY-MM-DD-<device>") and day summaries ("sum-YYYY-MM-DD") are recognised by their id */
-export const docKind = (d: { id: string }) => (d.id.startsWith("day-") ? "daylog" : d.id.startsWith("sum-") ? "daysum" : d.id.startsWith("mm-") ? "mindmap" : "doc");
+export const docKind = (d: { id: string }) => (d.id.startsWith("day-") ? "daylog" : d.id.startsWith("sum-") ? "daysum" : d.id.startsWith("mm-") ? "mindmap" : d.id.startsWith("wr-") ? "report" : "doc");
 export interface QA { q: string; a: string; at: number; deep?: boolean }
 
 export const S = {

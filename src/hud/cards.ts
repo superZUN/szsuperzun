@@ -1,6 +1,7 @@
 // Cards on the HUD: creation, two-column layout, touch gestures (tap = open, double-tap = pin, drag = look, throw = dismiss),
 // the detail view, the analysis log and the picture lightbox.
 import { $, hostOf, safeUrl, REDUCED } from "../util";
+import { showTab } from "../controls";
 import { S, type CardData, type CardImg } from "../state";
 import { F, neurons, nearestNeuron, pathTo, wake, fieldEl } from "./field";
 import { closeBoard, boardOpen } from "../board/board";
@@ -56,7 +57,7 @@ export function addNode(raw: Partial<CardData> & { type: string }, opts: { resto
   const type = TYPE[raw.type] ? raw.type : "fact";
   const data: CardData = opts.restore ? (raw as CardData) : {
     id: ++S.seq, type, title: raw.title || "", body: raw.body || "", source: raw.source || "", links: raw.links || [], kw: raw.kw || "", img: raw.img || null, example: !!opts.example,
-    time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }), ...(raw.act ? { act: raw.act } : {}), ...(raw.mm ? { mm: raw.mm } : {}),
+    time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }), ...(raw.act ? { act: raw.act } : {}), ...(raw.mm ? { mm: raw.mm } : {}), ...(raw.go ? { go: raw.go } : {}),
   };
   if (opts.restore) S.seq = Math.max(S.seq, data.id || 0);
   if (!opts.example) {
@@ -179,6 +180,10 @@ export function renderFocus() {
   if (d.mm) {
     const b = document.createElement("button"); b.className = "primary"; b.textContent = "마인드맵 보기";
     b.addEventListener("click", () => { closeFocus(); openWeekMap(d.mm!); }); row.append(b);
+  }
+  if (d.go) {
+    const b = document.createElement("button"); b.className = "primary"; b.textContent = "열어 보기";
+    b.addEventListener("click", () => { closeFocus(); closeBoard(); showTab(d.go!); }); row.append(b);
   }
   if (d.act && !d.act.added) {
     const b = document.createElement("button"); b.className = "primary"; b.textContent = "할 일에 추가";

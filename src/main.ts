@@ -47,6 +47,9 @@ import { rs } from "./speech/recognizer";
 import { vad } from "./speech/gauge";
 import { tasks } from "./tasks/tasks";
 import { M } from "./minutes/minutes";
+import { initWork, autoBrief, autoReport, work } from "./work/work";
+import { onUtterance } from "./work/voice";
+import { setUtteranceHook } from "./transcript";
 
 migrateSettings();
 initSettingsUI();
@@ -58,7 +61,7 @@ initTranscriptUI(() => scheduleAnalyze());
 initRecognizer(); initGauge(); initMicCheck(); initStandby();
 initTopic(); initAnalyzeTicker(); initKeywords(); initAsk(); preloadMermaid();
 initMinutesUI(); initPrep(() => showTab("tabPrep")); initActions(); initCarry(); initTasks(); initSession();
-initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud(); initRecorder();
+initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud(); initRecorder(); initWork(); setUtteranceHook(onUtterance);
 
 setStatus(); refreshNote(); updateFixStat();
 const restored = restoreSession(); renderAgBar(); updatePrepCount(); renderActions(); initialSnapshot();
@@ -68,8 +71,8 @@ if (!restored) [
   { type: "info", title: "'지난번 수준' = 수율 96.5%", body: "상대가 말한 '지난번 얘기한 수준'은 10/14 회의에서 합의한 Formation 수율 96.5%입니다." },
 ].reverse().forEach((x, i) => setTimeout(() => { if (!S.history.length) addNode(x, { example: true }); }, 400 + i * 500));
 if (!ai.apiKey) showTab("tabSet");
-void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); setTimeout(() => void weeklyMindmap(), 5000); });
+void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); setTimeout(() => void weeklyMindmap(), 5000); setTimeout(() => void autoBrief(), 6000); setTimeout(() => void autoReport(), 8000); });
 /** read-only window into the app for the automated tests (and for debugging in the console) */
-(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap, cloud, CLOUD_TIMING, recInfo, SPEAKERS, spk };
+(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap, cloud, CLOUD_TIMING, recInfo, SPEAKERS, spk, work, autoBrief, autoReport };
 document.documentElement.dataset.ready = "1";
 void $;
