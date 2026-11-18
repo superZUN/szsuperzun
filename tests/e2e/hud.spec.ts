@@ -69,7 +69,7 @@ test.describe("즉시 키워드 레이어", () => {
     await open({});
     await startListening(page);
     await ev(page, "window.__say('SEI 막이 두꺼워졌어요')");
-    await page.locator("#kwList .kw").first().click();
+    await page.locator("#kwList .kw").first().evaluate((e: HTMLElement) => e.click()); // the bar is hidden by default; a tap on a chip still opens the detail
     await expect(page.locator("#focusCard")).toContainText("DEF · 용어 사전");
     await expect(page.locator("#focusCard")).toContainText("Solid Electrolyte Interphase");
     await expect(page.locator("#focusCard")).toContainText("CONTEXT · 나온 대목");

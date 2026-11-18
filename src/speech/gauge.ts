@@ -12,15 +12,17 @@ import { rs, restartRec, startRec } from "./recognizer";
 import { wakeUp } from "../power/standby";
 import { cloudAttach, cloudDetach, cloudOn, cloudLabel, cloud, sttKey, checkMicConflict } from "./cloud";
 import { recWanted, recInfo } from "./recorder";
+import { quietActive } from "./quiet";
 
 export const vad = {
   failed: false, pauseUntil: 0, ctx: null as AudioContext | null, stream: null as MediaStream | null, an: null as AnalyserNode | null, full: null as AnalyserNode | null,
-  buf: null as Float32Array | null, fbuf: null as Float32Array | null, floor: 0.003, level: 0, hits: 0, speaking: false, voiceStart: 0, voiceAt: 0, timer: 0 as any, err: "",
+  src: null as AudioNode | null, buf: null as Float32Array | null, fbuf: null as Float32Array | null, floor: 0.003, level: 0, hits: 0, speaking: false, voiceStart: 0, voiceAt: 0, timer: 0 as any, err: "",
 };
 export const gaugeState = { deafRestarts: 0, lastDeafFix: 0, quietSince: 0, lastGauge: 0 };
 export const vadLive = () => !!vad.timer;
 
-export async function vadStart() {
+/** keepFloor: a restart (e.g. switching to Gemini) keeps the room's learned noise level, so quiet speech still counts */
+export async function vadStart(keepFloor = false) {
   if (!(cfg.vadOn || cloudOn() || (cfg.recMeet && !!sttKey() && S.appMode === "meet")) || vad.failed || vad.timer || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return; // Gemini needs the microphone even with the gauge off
   const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return;
   try {
@@ -30,12 +32,12 @@ export async function vadStart() {
     const ctx = vad.ctx!; const src = ctx.createMediaStreamSource(vad.stream!), bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 0.6; // speech band
     vad.an = ctx.createAnalyser(); vad.an.fftSize = 1024; src.connect(bp); bp.connect(vad.an); vad.buf = new Float32Array(vad.an.fftSize);
     vad.full = ctx.createAnalyser(); vad.full.fftSize = 1024; src.connect(vad.full); vad.fbuf = new Float32Array(vad.full.fftSize);
-    vad.floor = 0.003; vad.timer = setInterval(vadTick, 100); vad.err = "";
+    vad.src = src; vad.floor = keepFloor ? Math.min(vad.floor, 0.003) : 0.003; vad.timer = setInterval(vadTick, 100); vad.err = "";
     void cloudAttach(ctx, src);
   } catch (e: any) { vad.failed = true; vad.err = e && e.name === "NotAllowedError" ? "막대용 권한 없음" : "막대를 켤 수 없음"; vadStop(); }
 }
 export function vadStop() {
-  cloudDetach(); clearInterval(vad.timer); vad.timer = 0; if (vad.stream) vad.stream.getTracks().forEach((t) => t.stop()); vad.stream = null;
+  cloudDetach(); clearInterval(vad.timer); vad.timer = 0; vad.src = null; if (vad.stream) vad.stream.getTracks().forEach((t) => t.stop()); vad.stream = null;
   if (vad.ctx) { vad.ctx.close().catch(() => {}); vad.ctx = null; }
   vad.level = 0; vad.speaking = false; vad.hits = 0; const m = $("micMeter"); if (m) { m.className = "meter"; m.firstElementChild.style.width = "0%"; }
 }
@@ -69,7 +71,7 @@ export function renderGauge(force?: boolean) {
   if (vadLive()) checkMicConflict(gaugeState.quietSince ? now - gaugeState.quietSince : 0, rs.lastResultAt, rs.wanted && !!rs.rec);
   const deaf = vadLive() && vad.speaking && now - vad.voiceStart > 2500 && now - rs.lastResultAt > 2500 && !S.curInterim;
   if (S.standby) { rsEl.textContent = "대기 (목소리에 깨어남)"; rsEl.className = "mstate"; dot.className = "rdot"; }
-  else if (cfg.sttMode === "cloud" && cloudOn() && !cloud.fellBack) { rsEl.textContent = "Gemini 받아쓰기"; rsEl.className = "mstate good"; dot.className = "rdot " + (cloud.state === "sending" ? "hit" : "on"); }
+  else if (cfg.sttMode === "cloud" && cloudOn() && !cloud.fellBack) { rsEl.textContent = quietActive() ? "Gemini 받아쓰기 (작은 목소리)" : "Gemini 받아쓰기"; rsEl.className = "mstate good"; dot.className = "rdot " + (cloud.state === "sending" ? "hit" : "on"); }
   else if (!rs.wanted || !rs.rec) { rsEl.textContent = "꺼짐"; rsEl.className = "mstate bad"; dot.className = "rdot off"; }
   else if (rs.phase === "starting") { rsEl.textContent = "켜는 중…"; rsEl.className = "mstate warn"; dot.className = "rdot warn"; }
   else if (deaf) { rsEl.textContent = "소리는 들리는데 글자가 안 나옴"; rsEl.className = "mstate warn"; dot.className = "rdot warn"; }

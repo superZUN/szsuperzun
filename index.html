@@ -17,7 +17,8 @@
     <div class="seg appmode" role="tablist" aria-label="모드"><button id="modeMeet" role="tab" aria-selected="true">회의</button><button id="modeConv" role="tab" aria-selected="false">대화</button></div>
     <button id="topicChip" class="topic" hidden title="지금 대화가 일상인지 업무인지 — 누르면 직접 바꿀 수 있어요">일상</button>
     <span id="status" class="status">STANDBY</span>
-    <select id="lang" class="lang" aria-label="인식 언어"><option value="ko-KR">KO</option><option value="en-US">EN</option></select>
+    <select id="lang" class="lang" aria-label="인식 언어" hidden><option value="ko-KR">KO</option><option value="en-US">EN</option></select>
+    <div class="seg langseg" role="tablist" aria-label="인식 언어"><button id="langKo" role="tab" aria-selected="true" title="한국어로 알아듣기">KO</button><button id="langEn" role="tab" aria-selected="false" title="영어로 알아듣기">EN</button></div>
     <button id="startBtn" class="primary">시작</button>
   </header>
   <div class="tabs" role="tablist">
@@ -31,7 +32,7 @@
   </div>
 
   <section id="liveView" class="view">
-    <div id="kwBar" class="kwbar"><span class="mono kwlbl">KEYWORDS</span><div id="kwList" class="chips" aria-label="대화에서 나온 키워드"></div><span id="kwEmpty" class="hint">대화에 나온 키워드가 여기에 쌓이고, 누르면 정의·지난 회의·검색 결과를 보여줍니다.</span></div>
+    <div id="kwBar" class="kwbar" hidden><span class="mono kwlbl">KEYWORDS</span><div id="kwList" class="chips" aria-label="대화에서 나온 키워드"></div><span id="kwEmpty" class="hint">대화에 나온 키워드가 여기에 쌓이고, 누르면 정의·지난 회의·검색 결과를 보여줍니다.</span></div>
     <div id="agBar" class="agbar">
       <div class="agmain">
         <span id="agPos" class="mono agpos">AGENDA</span>
@@ -54,7 +55,7 @@
       <div id="endBar" class="endbar" hidden><span class="mono">Session ended</span><span class="hint" style="flex:1">받아쓴 대화로 회의록을 만들 수 있습니다.</span><button id="chkBtn2">마무리 점검</button><button id="minutesBtn" class="primary">회의록 작성</button></div>
         <div id="micBar" class="micbar" hidden aria-live="polite">
           <span class="lbl">MIC</span><span id="micMeter" class="meter" title="마이크 입력 크기"><i></i></span><span id="micState" class="mstate">—</span>
-          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="cloudState" class="mstate"></span><span id="recIndicator" class="mstate recind" hidden></span><span id="recCount" class="mcount"></span><button id="micCheckBtn" class="mini">마이크 점검</button>
+          <span class="lbl">인식</span><span id="recDot" class="rdot"></span><span id="recState" class="mstate">—</span><span id="cloudState" class="mstate"></span><span id="recIndicator" class="mstate recind" hidden></span><span id="recCount" class="mcount"></span><button id="quietBtn" class="mini quiet" aria-pressed="false">작은 목소리 → Gemini</button><button id="micCheckBtn" class="mini">마이크 점검</button>
         </div>
       <div class="row tickrow">
         <div id="ticker" class="ticker"><span class="lbl">AUDIO ›</span><span id="live" class="txt idle">STANDBY</span></div>
@@ -318,6 +319,7 @@ NSE = NextStar Energy
         <label class="f">배터리 절약
           <select id="powerMode"><option value="auto">자동 — 조용할 때는 화면 애니메이션을 낮춤 (권장)</option><option value="save">최대 절약 — 애니메이션 최소, 화면 해상도 낮춤</option><option value="full">끄기 — 항상 최고 화질</option></select>
         </label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="kwBarOn" type="checkbox" style="width:auto;flex:none"> 키워드 줄 보이기 — 실시간 화면 위쪽에 대화 키워드 줄을 표시 (끄면 가운데 화면이 넓어짐)</label>
         <label class="row" style="gap:8px;font-size:13.5px"><input id="visOn" type="checkbox" style="width:auto;flex:none" checked> 그림 자동 표시 — 공정 흐름·구조·인과관계처럼 그림이 도움이 되는 대목에서 AI가 다이어그램을 그림 (1분에 최대 1장, 소액 과금)</label>
         <div class="hint">질문에 '그림으로', '도식', '흐름도', '사진' 같은 말을 넣으면 답과 함께 다이어그램이나 사진을 띄웁니다. 키워드를 눌러 '그림으로 보기'·'사진 찾기'도 할 수 있습니다.</div>
         <label class="f">AI 웹 검색 — 최신 정보를 웹에서 찾아 요약 (Claude·Gemini만, 검색 1회당 소액 과금)
@@ -351,6 +353,7 @@ NSE = NextStar Energy
         <label class="f">받아쓰기 엔진
           <select id="sttMode"><option value="safari">Safari 내장 — 무료, 바로 보임</option><option value="hybrid">Safari + Gemini 보정 — 바로 보이고 몇 초 뒤 더 정확한 글자로 바뀜</option><option value="cloud">Gemini만 — 가장 정확(한영 혼용), 몇 초 늦게 보임</option></select>
         </label>
+        <label class="row" style="gap:8px;font-size:13.5px"><input id="quietAuto" type="checkbox" style="width:auto;flex:none"> 작은 목소리 → Gemini 자동 — 소리는 들리는데 Safari가 못 알아들으면 Gemini로 받아쓰고, 목소리가 커지면 원래대로 (실시간 화면 MIC 줄의 버튼과 같음, Gemini 키 필요)</label>
         <label class="f">Gemini API 키 (aistudio.google.com/apikey 에서 받은 AIza…)<input id="sttKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza..."></label>
         <label class="f">받아쓰기 모델 (비우면 키로 쓸 수 있는 가장 새 Flash-Lite를 자동 선택 — 권장)<input id="sttModel" spellcheck="false" list="sttModels" placeholder="자동"></label>
         <datalist id="sttModels"><option value="gemini-3.8-flash"></option><option value="gemini-flash-lite-latest"></option><option value="gemini-flash-latest"></option></datalist>

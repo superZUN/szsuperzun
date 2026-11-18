@@ -32,6 +32,7 @@ export const cfg = {
   briefOn: ls.get("ms.briefOff") !== "1",
   reportOn: ls.get("ms.reportOff") !== "1",
   voiceOn: ls.get("ms.voiceOff") !== "1",
+  kwBarOn: ls.get("ms.kwBarOn") === "1",
 };
 
 /** analysis pacing: how long to wait after speech stops, the minimum gap between calls, how much new text, and a forced interval */
@@ -70,6 +71,8 @@ export function initSettingsUI() {
   bindCheck("briefOn", "briefOn", "ms.briefOff", false);
   bindCheck("reportOn", "reportOn", "ms.reportOff", false);
   bindCheck("voiceOn", "voiceOn", "ms.voiceOff", false);
+  bindCheck("kwBarOn", "kwBarOn", "ms.kwBarOn", true);
+  const kwShow = () => { $("kwBar").hidden = !cfg.kwBarOn; }; kwShow(); $("kwBarOn").addEventListener("change", kwShow);
   bindCheck("recMeet", "recMeet", "ms.recMeetOff", false);
   bindCheck("recDelete", "recDelete", "ms.recKeep", false);
   const wm = $("webMode"); wm.value = cfg.webMode;

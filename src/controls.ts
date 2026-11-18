@@ -24,6 +24,7 @@ import { renderLearn } from "./memory/learn";
 import { renderMind } from "./mindmap/mindmap";
 import { initMeetingType } from "./meeting/mtype";
 import { renderWork } from "./work/work";
+import { quietStop } from "./speech/quiet";
 
 export function setStatus() {
   const s = $("status"); s.className = "status" + (S.busy ? " busy" : S.running ? " on" : "");
@@ -41,7 +42,7 @@ export async function toggle() {
     else if (!startRec()) { $("aiNote").className = "hint warn"; $("aiNote").textContent = "이 브라우저는 실시간 음성 인식을 지원하지 않아요. Chrome, Edge, Safari에서 열어 주세요. '원문'을 열고 직접 입력해도 분석됩니다."; }
     void holdScreen(); renderGauge(true); keepWarm(true);
   } else {
-    stopRec(); vadStop(); if (S.standby) { S.standby = false; $("sleepVeil").hidden = true; } void analyze(false); releaseScreen(); renderGauge(true); setStatus();
+    quietStop(); stopRec(); vadStop(); if (S.standby) { S.standby = false; $("sleepVeil").hidden = true; } void analyze(false); releaseScreen(); renderGauge(true); setStatus();
   }
   wake(1500);
 }
@@ -117,6 +118,11 @@ export function renderUsage() {
 
 export function initControls() {
   $("startBtn").addEventListener("click", toggle);
+  // KO / EN toggle over the (hidden) language select that the recogniser and the meeting types read
+  const lang = $("lang"), syncLang = () => { $("langKo").setAttribute("aria-selected", String(lang.value === "ko-KR")); $("langEn").setAttribute("aria-selected", String(lang.value === "en-US")); };
+  const setLang = (v: string) => { if (lang.value === v) return; lang.value = v; lang.dispatchEvent(new Event("change")); };
+  $("langKo").addEventListener("click", () => setLang("ko-KR")); $("langEn").addEventListener("click", () => setLang("en-US"));
+  lang.addEventListener("change", syncLang); syncLang();
   Object.keys(TABS).forEach((t) => $(t).addEventListener("click", () => showTab(t)));
   $("modeMemo").addEventListener("click", () => setInMode("memo")); $("modeAsk").addEventListener("click", () => setInMode("ask")); $("modeAct").addEventListener("click", () => setInMode("act"));
   initMeetingType();

@@ -110,6 +110,8 @@ function finish() {
 /** 16 kHz mono 16-bit WAV */
 export function toWav(chunks: Float32Array[], len: number, rate: number): Blob {
   const all = new Float32Array(len); let k = 0; for (const c of chunks) { all.set(c, k); k += c.length; }
+  let peak = 0; for (let i = 0; i < len; i++) { const a = Math.abs(all[i]); if (a > peak) peak = a; }
+  if (peak > 0.002 && peak < 0.5) { const g = Math.min(8, 0.9 / peak); for (let i = 0; i < len; i++) all[i] *= g; } // quiet speech: louder for Gemini (never clipped)
   const out = 16000, step = rate / out, n = Math.floor(len / step), pcm = new Int16Array(n);
   for (let i = 0; i < n; i++) { let s = 0, m = 0; for (let j = Math.floor(i * step); j < Math.min(len, Math.floor((i + 1) * step)); j++) { s += all[j]; m++; } const v = Math.max(-1, Math.min(1, m ? s / m : 0)); pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
   const buf = new ArrayBuffer(44 + pcm.byteLength), d = new DataView(buf); const w = (o: number, s: string) => { for (let i = 0; i < s.length; i++) d.setUint8(o + i, s.charCodeAt(i)); };

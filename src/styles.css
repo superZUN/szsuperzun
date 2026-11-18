@@ -399,3 +399,9 @@ body.conv .mtypes{display:none}
 .wa{font-size:13.5px}
 .vlist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
 #briefOut:empty,#wrOut:empty{display:none}
+
+/* language toggle + quiet-voice toggle */
+.seg.langseg button{padding:6px 10px;font-size:12px;font-family:var(--font-mono);letter-spacing:.08em}
+.micbar .mini.quiet{color:var(--muted)}
+.micbar .mini.quiet.on{color:var(--cy);box-shadow:inset 0 0 0 1px var(--cy);background:rgba(111,231,255,.08)}
+.micbar .mini.quiet.act{color:#021014;background:var(--cy)}

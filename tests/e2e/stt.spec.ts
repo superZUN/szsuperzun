@@ -161,3 +161,60 @@ test("아이패드 마이크 충돌: Safari는 알아듣는데 막대는 계속 
   await speak(page);
   await expect.poll(() => transcript(page), { timeout: 8000 }).toContain("젬니니가 들은 문장");
 });
+
+test("작은 목소리 → Gemini 자동: 막대엔 말소리가 있는데 Safari가 글자를 못 내면 Gemini로, 목소리가 커지면 원래대로 (설정값은 그대로)", async ({ open, page }) => {
+  test.setTimeout(60000);
+  await mockAI(page, (c) => (isStt(c) ? "작게 말한 문장입니다" : "[]"));
+  await modelList(page);
+  await open({ storage: { ...GEM, "ms.quietAuto": "1" } });
+  await startListening(page);
+  await expect.poll(() => app(page, "!!A.vad.timer")).toBe(true);
+  await app(page, "Object.assign(A.QUIET, { triggerVoiceMs: 1500, triggerSilentMs: 2000, minStayMs: 2500, loudVoiceMs: 800, loudWindowMs: 1500 })");
+  await expect(page.locator("#quietBtn")).toHaveAttribute("aria-pressed", "true");
+  await page.waitForTimeout(1500); // a quiet room first: the gauge learns the noise floor
+  await ev(page, "window.__mic.set({ voice: 0.02 })"); // quiet speech: the gauge hears it, Safari makes no words
+  await expect.poll(() => app(page, "A.quiet.active"), { timeout: 8000 }).toBe(true);
+  await expect.poll(() => ev(page, "!!window.__sr.live")).toBe(false);
+  expect(await app(page, "A.cfg.sttMode")).toBe("cloud");
+  expect(await ev(page, "localStorage.getItem('ms.sttMode')")).toBeNull(); // only in memory
+  await expect(page.locator("#recState")).toHaveText("Gemini 받아쓰기 (작은 목소리)");
+  await expect(page.locator("#quietBtn")).toHaveText("작은 목소리 · Gemini 중");
+  await expect.poll(() => app(page, "A.cloud.node != null"), { timeout: 5000 }).toBe(true);
+  await page.waitForTimeout(1200); await ev(page, "window.__mic.set({ voice: 0 })");
+  await expect.poll(() => transcript(page), { timeout: 8000 }).toContain("작게 말한 문장입니다");
+  await page.waitForTimeout(1500);
+  await ev(page, "window.__mic.set({ voice: 1 })"); // loud again
+  await expect.poll(() => app(page, "A.quiet.active"), { timeout: 8000 }).toBe(false);
+  await ev(page, "window.__mic.set({ voice: 0 })");
+  expect(await app(page, "A.cfg.sttMode")).toBe("safari");
+  await expect.poll(() => ev(page, "!!window.__sr.live")).toBe(true);
+  await expect(page.locator("#aiNote")).toContainText("목소리가 커져서 원래 받아쓰기로 돌아왔어요");
+  // the toggle: off
+  await page.click("#quietBtn");
+  await expect(page.locator("#quietBtn")).toHaveAttribute("aria-pressed", "false");
+  expect(await ev(page, "localStorage.getItem('ms.quietAuto') || ''")).toBe("");
+});
+
+test("작은 목소리 토글은 Gemini 키가 없으면 켜지지 않고 안내", async ({ open, page }) => {
+  await open({});
+  await startListening(page);
+  await page.click("#quietBtn");
+  await expect(page.locator("#quietBtn")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#aiNote")).toContainText("Gemini 키가 필요해요");
+});
+
+test("언어는 KO/EN 토글, 키워드 줄은 기본으로 숨김(설정에서 켜기)", async ({ open, page }) => {
+  await open({});
+  await expect(page.locator("#lang")).toBeHidden();
+  await expect(page.locator("#langKo")).toHaveAttribute("aria-selected", "true");
+  await page.click("#langEn");
+  await expect(page.locator("#lang")).toHaveValue("en-US");
+  await expect(page.locator("#langEn")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#langKo")).toHaveAttribute("aria-selected", "false");
+  await page.click("#langKo"); await expect(page.locator("#lang")).toHaveValue("ko-KR");
+  await expect(page.locator("#kwBar")).toBeHidden();
+  await page.click("#tabSet"); await page.check("#kwBarOn"); await page.click("#tabLive");
+  await expect(page.locator("#kwBar")).toBeVisible();
+  await page.reload(); await expect(page.locator("html[data-ready='1']")).toHaveCount(1); await page.click("#tabLive");
+  await expect(page.locator("#kwBar")).toBeVisible();
+});
