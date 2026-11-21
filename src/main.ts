@@ -51,6 +51,8 @@ import { initWork, autoBrief, autoReport, work } from "./work/work";
 import { onUtterance } from "./work/voice";
 import { setUtteranceHook } from "./transcript";
 import { initQuiet, quiet, QUIET } from "./speech/quiet";
+import { initHook, queueTask, hook, HOOK_TIMING } from "./tasks/hook";
+import { setNewTaskHook } from "./tasks/tasks";
 
 migrateSettings();
 initSettingsUI();
@@ -62,7 +64,7 @@ initTranscriptUI(() => scheduleAnalyze());
 initRecognizer(); initGauge(); initMicCheck(); initStandby();
 initTopic(); initAnalyzeTicker(); initKeywords(); initAsk(); preloadMermaid();
 initMinutesUI(); initPrep(() => showTab("tabPrep")); initActions(); initCarry(); initTasks(); initSession();
-initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud(); initRecorder(); initWork(); setUtteranceHook(onUtterance); initQuiet();
+initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud(); initRecorder(); initWork(); setUtteranceHook(onUtterance); initQuiet(); setNewTaskHook(queueTask); initHook();
 
 setStatus(); refreshNote(); updateFixStat();
 const restored = restoreSession(); renderAgBar(); updatePrepCount(); renderActions(); initialSnapshot();
@@ -74,6 +76,6 @@ if (!restored) [
 if (!ai.apiKey) showTab("tabSet");
 void openDB().then(loadDocs).then(async (d) => { S.docs = d; markInterrupted(); rebuildIndex(); document.documentElement.dataset.docs = "1"; await syncDocsNow(false); setTimeout(() => void catchUp(), 3000); setTimeout(() => void weeklyMindmap(), 5000); setTimeout(() => void autoBrief(), 6000); setTimeout(() => void autoReport(), 8000); });
 /** read-only window into the app for the automated tests (and for debugging in the console) */
-(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap, cloud, CLOUD_TIMING, recInfo, SPEAKERS, spk, work, autoBrief, autoReport, quiet, QUIET };
+(window as any).__app = { S, cfg, ai, usage, micCheckTiming, stats, boardStats, cards, rs, vad, tasks, M, flushLog, LOG_TIMING, catchUp, mindState, weeklyMindmap, cloud, CLOUD_TIMING, recInfo, SPEAKERS, spk, work, autoBrief, autoReport, quiet, QUIET, hook, HOOK_TIMING };
 document.documentElement.dataset.ready = "1";
 void $;

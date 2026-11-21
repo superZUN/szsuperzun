@@ -107,12 +107,12 @@ test("주간 업무보고: 금요일 오후엔 자동(한 번), '이번 주 보�
   await expect(page.locator("#wrOut")).toContainText("금요일 오후 3시");
   const id = `wr-${key(monday())}`;
   // automatic: this week's Friday 4 p.m. → made once, with a card
-  const fri = monday() + 4 * 864e5 + 16 * 3600e3;
+  const fri = Math.max(monday() + 4 * 864e5 + 16 * 3600e3, Date.now() + 1000); // Friday 4 p.m. — or now, when that has passed (tasks were done just now)
   await app(page, "(A.cfg.reportOn = true)");
   await app(page, `A.autoReport(${fri})`);
   await expect.poll(() => app(page, `A.S.docs.some(d => d.id === '${id}')`), { timeout: 8000 }).toBe(true);
   await expect(real(page).filter({ hasText: "주간 업무보고" })).toHaveCount(1);
-  await app(page, `A.autoReport(${fri + 2 * 3600e3})`);
+  await app(page, `A.autoReport(${fri + 60000})`);
   expect(ai.calls.filter(isReport)).toHaveLength(1);
   const c = ai.calls.find(isReport)!; expect(c.prompt).toContain("[이번 주 끝낸 할 일]\n- Formation 수율 보고");
   await expect(page.locator("#wrOut")).toContainText("Formation 수율 96.5% 보고 완료");

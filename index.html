@@ -299,6 +299,12 @@ NSE = NextStar Energy
         </label>
         <div class="row"><button id="saveGloss" class="primary">사전 저장</button><button id="syncGloss">서버에서 불러오기</button></div>
         <div id="glossMsg" class="hint"></div>
+        <div class="row" style="margin-top:6px"><b style="flex:1;font-size:13.5px">할 일 웹훅 (Power Automate)</b><span id="hookState" class="mstate"></span></div>
+        <label class="f">웹훅 주소 — 새 할 일이 생길 때마다 {issue: 영문 할 일, pic: 담당자, status: OPEN}을 보냅니다
+          <input id="hookUrl" type="password" autocomplete="off" spellcheck="false" placeholder="https://…powerplatform.com/powerautomate/…/invoke?…&sig=…"></label>
+        <div class="row"><button id="hookSave" class="primary">웹훅 저장</button><button id="hookTest">시험 보내기</button></div>
+        <div id="hookMsg" class="hint"></div>
+        <div class="hint">주소에 들어 있는 sig 값은 비밀번호와 같아서, 이 기기가 아닌 서버(Netlify)에만 보관하고 화면에 다시 보여 주지 않습니다. 비우고 저장하면 꺼집니다. 서버 동기화 비밀번호가 필요합니다.</div>
         <div class="hint">비밀번호를 넣으면 사전이 웹서버(Netlify)에 저장되어, 다른 기기에서도 같은 비밀번호로 불러올 수 있습니다. 분석할 때는 앞부분 약 2,000자까지 Claude API로 함께 전달됩니다.</div>
       </div>
       <div class="panel">

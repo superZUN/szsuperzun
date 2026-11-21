@@ -29,7 +29,7 @@ globalThis.Netlify = {
 
 const fnDir = path.resolve(here, "../../netlify/functions");
 const routes = {};
-for (const name of ["glossary", "minutes", "tasks"]) {
+for (const name of ["glossary", "minutes", "tasks", "hook"]) {
   const mod = await import(pathToFileURL(path.join(fnDir, name + ".mjs")).href);
   routes[mod.config.path] = mod.default;
 }
@@ -40,12 +40,19 @@ async function readBody(req) {
   return Buffer.concat(chunks);
 }
 
+const sink = {};
 function middleware() {
   return async (req, res, next) => {
     const url = new URL(req.url, "http://local");
     const ns = String(req.headers["x-test-ns"] || "default");
     if (url.pathname === "/__test/blobs/reset") { resetNs(ns); res.end("{}"); return; }
     if (url.pathname === "/__test/blobs/delete") { deleteKey(ns, url.searchParams.get("store"), url.searchParams.get("key")); res.end("{}"); return; }
+    // a stand-in for the Power Automate flow: POST stores the body (?fail=1 answers 500), GET lists what arrived
+    if (url.pathname === "/__test/hook-sink") {
+      const key = url.searchParams.get("ns") || "default"; const list = (sink[key] ||= []);
+      if (req.method === "POST") { list.push(JSON.parse(String(await readBody(req)) || "{}")); res.statusCode = url.searchParams.get("fail") ? 500 : 202; res.end(""); return; }
+      res.setHeader("content-type", "application/json"); res.end(JSON.stringify(list)); return;
+    }
     if (url.pathname === "/__test/blobs/dump") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(dumpNs(ns))); return; }
     const fn = routes[url.pathname];
     if (!fn) return next();

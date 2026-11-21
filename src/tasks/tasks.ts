@@ -14,13 +14,16 @@ export const liveTasks = () => tasks.filter((t) => !t.deleted);
 export function saveTasks(push?: boolean) { ls.set("ms.tasks", JSON.stringify(tasks)); updateTodoCount(); if (push !== false) { clearTimeout(pushT); pushT = setTimeout(pushTasks, 800); } }
 export const touch = (t: Task) => { t.updatedAt = Date.now(); };
 const todoVisible = () => !$("todoView").hidden;
-export function addTask(a: { text: string; owner?: string; due?: string; from?: string }): Task | null {
+let onNew: ((t: Task) => void) | null = null;
+/** the 할 일 webhook hears about each brand-new task */
+export const setNewTaskHook = (f: (t: Task) => void) => { onNew = f; };
+export function addTask(a: { text: string; owner?: string; due?: string; from?: string }, opts: { quiet?: boolean } = {}): Task | null {
   const text = (a.text || "").trim(); if (!text) return null;
   const owner = (a.owner || "").trim(); // the same words for two different people are two tasks
   const ex = liveTasks().find((t) => !t.done && sameAction(t.text, text) && !(t.owner && owner && t.owner !== owner));
   if (ex) { let ch = false; if (!ex.owner && a.owner) { ex.owner = a.owner; ch = true; } if (!ex.due && a.due) { ex.due = a.due; ch = true; } if (ch) { touch(ex); saveTasks(); } return ex; }
   const t: Task = { id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, owner: (a.owner || "").trim(), due: (a.due || "").trim(), result: "", from: a.from || "", done: false, doneAt: 0, at: Date.now(), updatedAt: Date.now() };
-  tasks.push(t); saveTasks(); if (todoVisible()) renderTodo(); return t;
+  tasks.push(t); saveTasks(); if (todoVisible()) renderTodo(); if (onNew && !opts.quiet) try { onNew(t); } catch { /* never block adding */ } return t;
 }
 /** "11/20", "11월 20일", "2026-11-20", "11.20", 오늘, 내일 → end of that day; anything else → null */
 export function parseDue(s: string): Date | null {
@@ -202,7 +205,7 @@ export function initTasks() {
   setInterval(updateTodoCount, 60000);
   // tasks that existed only in the next-meeting check list come along once
   let ch = false;
-  carry.items.forEach((x) => { const text = stripCarry(x.text); if (!liveTasks().some((t) => sameAction(t.text, text))) { const t = addTask({ text, owner: x.owner, due: x.due, from: carry.from || "지난 회의" }); if (t && x.done) { t.done = true; t.doneAt = Date.now(); } ch = true; } });
+  carry.items.forEach((x) => { const text = stripCarry(x.text); if (!liveTasks().some((t) => sameAction(t.text, text))) { const t = addTask({ text, owner: x.owner, due: x.due, from: carry.from || "지난 회의" }, { quiet: true }); if (t && x.done) { t.done = true; t.doneAt = Date.now(); } ch = true; } });
   if (ch) saveTasks(); updateTodoCount();
   setTimeout(pullTasks, 1500);
 }
