@@ -15,6 +15,12 @@ export function saveTasks(push?: boolean) { ls.set("ms.tasks", JSON.stringify(ta
 export const touch = (t: Task) => { t.updatedAt = Date.now(); };
 const todoVisible = () => !$("todoView").hidden;
 let onNew: ((t: Task) => void) | null = null;
+let hookMark: ((id: string) => { text: string; cls: string } | null) | null = null;
+/** the webhook's state per task, shown in each row (↗ 웹훅 보냄 / 보내는 중 / 문제) */
+export const setHookMark = (f: (id: string) => { text: string; cls: string } | null) => { hookMark = f; };
+function fillHookMark(el: HTMLElement, id: string) { const m = hookMark ? hookMark(id) : null; el.hidden = !m; el.textContent = m ? m.text : ""; el.className = "thook" + (m && m.cls ? " " + m.cls : ""); }
+/** redraw one row's webhook mark without redrawing the list (keeps an open editor as it is) */
+export function updateHookMark(id: string) { const el = document.querySelector(`.tswipe[data-id="${CSS.escape(id)}"] .thook`) as HTMLElement | null; if (el) fillHookMark(el, id); }
 /** the 할 일 webhook hears about each brand-new task */
 export const setNewTaskHook = (f: (t: Task) => void) => { onNew = f; };
 export function addTask(a: { text: string; owner?: string; due?: string; from?: string }, opts: { quiet?: boolean } = {}): Task | null {
@@ -23,7 +29,10 @@ export function addTask(a: { text: string; owner?: string; due?: string; from?: 
   const ex = liveTasks().find((t) => !t.done && sameAction(t.text, text) && !(t.owner && owner && t.owner !== owner));
   if (ex) { let ch = false; if (!ex.owner && a.owner) { ex.owner = a.owner; ch = true; } if (!ex.due && a.due) { ex.due = a.due; ch = true; } if (ch) { touch(ex); saveTasks(); } return ex; }
   const t: Task = { id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, owner: (a.owner || "").trim(), due: (a.due || "").trim(), result: "", from: a.from || "", done: false, doneAt: 0, at: Date.now(), updatedAt: Date.now() };
-  tasks.push(t); saveTasks(); if (todoVisible()) renderTodo(); if (onNew && !opts.quiet) try { onNew(t); } catch { /* never block adding */ } return t;
+  tasks.push(t); saveTasks();
+  if (onNew && !opts.quiet) try { onNew(t); } catch { /* never block adding */ } // before drawing: a drawing problem must not stop the webhook
+  if (todoVisible()) try { renderTodo(); } catch { /* the list is drawn again below */ }
+  return t;
 }
 /** "11/20", "11월 20일", "2026-11-20", "11.20", 오늘, 내일 → end of that day; anything else → null */
 export function parseDue(s: string): Date | null {
@@ -119,6 +128,7 @@ function todoRow(t: Task) {
   const meta = document.createElement("span"); meta.className = "tmeta"; const dt = dueTag(t);
   const bits = [t.owner && "담당 " + t.owner, t.due && "기한 " + t.due, t.done && t.doneAt && "완료 " + new Date(t.doneAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }), t.from].filter(Boolean);
   meta.textContent = bits.join(" · "); if (dt) { const tag = document.createElement("b"); tag.className = "tdue " + dt.cls; tag.textContent = dt.text; meta.prepend(tag); }
+  const hm = document.createElement("span"); fillHookMark(hm, t.id); meta.append(hm);
   main.append(tt, meta);
   if (t.result && openId !== t.id) { const r = document.createElement("span"); r.className = "tres"; r.textContent = "결과 · " + t.result; main.append(r); }
   main.addEventListener("click", () => { openId = openId === t.id ? null : t.id; renderTodo(); });

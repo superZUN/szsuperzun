@@ -5,7 +5,7 @@ import { $ } from "../util";
 import { ls } from "../storage/ls";
 import { server, serverApi, serverErrText } from "../storage/server";
 import { ai, aiCall } from "../ai/client";
-import { tasks, type Task } from "./tasks";
+import { tasks, updateHookMark, type Task } from "./tasks";
 
 interface Item { id: string; tries: number; issue?: string; err?: string }
 export const hook = { configured: ls.get("ms.hook.on") === "1", host: ls.get("ms.hook.host"), busy: false, sent: Number(ls.get("ms.hook.sent")) || 0, last: "", err: "" };
@@ -14,7 +14,15 @@ const queue = (): Item[] => ls.json<Item[]>("ms.hook.queue", []);
 const saveQueue = (q: Item[]) => ls.set("ms.hook.queue", JSON.stringify(q));
 function setConfigured(on: boolean, host = "") { hook.configured = on; hook.host = host; ls.set("ms.hook.on", on ? "1" : ""); ls.set("ms.hook.host", host); renderHook(); }
 const update = (id: string, f: (x: Item) => void) => saveQueue(queue().map((x) => (x.id === id ? (f(x), x) : x)));
-const drop = (id: string) => saveQueue(queue().filter((x) => x.id !== id));
+const drop = (id: string) => { saveQueue(queue().filter((x) => x.id !== id)); updateHookMark(id); };
+const sentIds = (): string[] => ls.json<string[]>("ms.hook.ids", []);
+function markSent(id: string) { const s = sentIds().filter((x) => x !== id); s.push(id); ls.set("ms.hook.ids", JSON.stringify(s.slice(-500))); }
+/** the mark in a 할 일 row */
+export function hookMark(id: string): { text: string; cls: string } | null {
+  const q = queue().find((x) => x.id === id);
+  if (q) return q.err ? { text: "웹훅 못 보냄 · " + q.err, cls: "bad" } : { text: "웹훅 보내는 중…", cls: "" };
+  return sentIds().includes(id) ? { text: "↗ 웹훅 보냄", cls: "ok" } : null;
+}
 
 /** a task title in English for the issue tracker (names, numbers, dates and codes kept) */
 export async function toEnglish(text: string): Promise<string> {
@@ -29,14 +37,14 @@ export const payload = (t: Task, issue: string) => ({ issue, pic: (t.owner || ""
  *  has not heard yet that a webhook was saved (it may have been saved on another device a moment ago) */
 export function queueTask(t: Task) {
   if (!server.passcode) return;
-  const q = queue(); if (q.some((x) => x.id === t.id)) return; q.push({ id: t.id, tries: 0 }); saveQueue(q); renderHook(); void flushHook();
+  const q = queue(); if (q.some((x) => x.id === t.id)) return; q.push({ id: t.id, tries: 0 }); saveQueue(q); renderHook(); updateHookMark(t.id); void flushHook();
 }
 /** one round: every queued task once, oldest first; one task the flow refuses does not hold up the others */
 export async function flushHook() {
   if (hook.busy || !server.passcode || !queue().length) return; hook.busy = true;
   try {
     if (!hook.configured) await refresh();
-    if (!hook.configured) { saveQueue([]); return; } // no webhook saved anywhere: nothing to send
+    if (!hook.configured) { const ids = queue().map((x) => x.id); saveQueue([]); ids.forEach(updateHookMark); return; } // no webhook saved anywhere: nothing to send
     const tried = new Set<string>(); let it: Item | undefined;
     while ((it = queue().find((x) => !tried.has(x.id)))) { // tasks added while this round runs are picked up too
       tried.add(it.id); const cur = it;
@@ -44,16 +52,16 @@ export async function flushHook() {
       if (!t || t.deleted) { drop(cur.id); continue; } // removed before it went out
       let issue = cur.issue;
       if (!issue) {
-        try { issue = await toEnglish(t.text); } catch { if (cur.tries < 2) { update(cur.id, (x) => { x.tries++; x.err = "영문 번역 대기(AI 응답 없음)"; }); continue; } issue = t.text; } // AI busy: next round, Korean after that
+        try { issue = await toEnglish(t.text); } catch { if (cur.tries < 2) { update(cur.id, (x) => { x.tries++; x.err = "영문 번역 대기(AI 응답 없음)"; }); updateHookMark(cur.id); continue; } issue = t.text; } // AI busy: next round, Korean after that
         update(cur.id, (x) => { x.issue = issue; });
       }
       try {
         await serverApi("/api/hook", "POST", payload(t, issue!));
-        hook.sent++; ls.set("ms.hook.sent", String(hook.sent)); hook.last = issue!; hook.err = ""; drop(cur.id);
+        hook.sent++; ls.set("ms.hook.sent", String(hook.sent)); hook.last = issue!; hook.err = ""; markSent(cur.id); drop(cur.id);
       } catch (e: any) {
         if (e && e.code === "server_err" && e.status === 409) { setConfigured(false); saveQueue([]); return; } // the URL was removed on the server
         const why = e && e.code === "server_err" && e.status === 502 ? `Power Automate가 받지 않음${e.detail ? " (" + e.detail + ")" : ""}` : serverErrText(e);
-        hook.err = why; update(cur.id, (x) => { x.tries++; x.err = why; });
+        hook.err = why; update(cur.id, (x) => { x.tries++; x.err = why; }); updateHookMark(cur.id);
         if (queue().find((x) => x.id === cur.id)!.tries >= 10) drop(cur.id); // give up after 10 tries
         if (!(e && e.code === "server_err" && e.status === 502)) return; // no connection: stop this round
       }

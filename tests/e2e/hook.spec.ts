@@ -105,3 +105,19 @@ test("이미 있는 할 일과 같아서 합쳐지면 알려 줌; 할 일 탭에
   await expect.poll(() => app(page, "A.tasks.filter(t => !t.deleted).length")).toBe(1);
   await expect.poll(() => arrived(page, ns)).toHaveLength(2);
 });
+
+test("할 일 탭에서 적고 '추가' 버튼 → 웹훅 전송, 줄마다 '↗ 웹훅 보냄' 표시 (못 보내면 이유)", async ({ open, page }) => {
+  const ns = "t" + Date.now();
+  await mockAI(page, (c) => (isHook(c) ? (c.prompt.includes("불량") ? "Analyze BAD defect" : "Prepare monthly report") : "[]"));
+  await open({ key: true, storage: { "ms.passcode": "test-pass" } });
+  await setUrl(page, sinkOf(page, ns) + "&failOn=BAD");
+  await page.click("#tabTodo");
+  await page.fill("#todoInput", "월간 보고서 준비 / JUN / 11/30"); await page.click("#todoAdd");
+  await expect.poll(() => arrived(page, ns)).toEqual([{ issue: "Prepare monthly report", pic: "JUN", status: "OPEN" }]);
+  const row = page.locator(".tswipe", { hasText: "월간 보고서 준비" });
+  await expect(row.locator(".thook")).toHaveText("↗ 웹훅 보냄");
+  await page.fill("#todoInput", "불량 분석"); await page.click("#todoAdd");
+  await expect(page.locator(".tswipe", { hasText: "불량 분석" }).locator(".thook")).toContainText("웹훅 못 보냄 · Power Automate가 받지 않음 (HTTP 500)");
+  await page.reload(); await expect(page.locator("html[data-ready='1']")).toHaveCount(1); await page.click("#tabTodo");
+  await expect(page.locator(".tswipe", { hasText: "월간 보고서 준비" }).locator(".thook")).toHaveText("↗ 웹훅 보냄"); // remembered
+});

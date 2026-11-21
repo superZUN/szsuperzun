@@ -405,3 +405,8 @@ body.conv .mtypes{display:none}
 .micbar .mini.quiet{color:var(--muted)}
 .micbar .mini.quiet.on{color:var(--cy);box-shadow:inset 0 0 0 1px var(--cy);background:rgba(111,231,255,.08)}
 .micbar .mini.quiet.act{color:#021014;background:var(--cy)}
+
+/* 할 일 row: webhook mark */
+.thook{font-family:var(--font-mono);font-size:10.5px;color:var(--muted)}
+.thook.ok{color:var(--cy)}
+.thook.bad{color:#FF7A9A}

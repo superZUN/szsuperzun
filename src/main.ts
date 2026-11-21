@@ -51,8 +51,8 @@ import { initWork, autoBrief, autoReport, work } from "./work/work";
 import { onUtterance } from "./work/voice";
 import { setUtteranceHook } from "./transcript";
 import { initQuiet, quiet, QUIET } from "./speech/quiet";
-import { initHook, queueTask, hook, HOOK_TIMING } from "./tasks/hook";
-import { setNewTaskHook } from "./tasks/tasks";
+import { initHook, queueTask, hook, HOOK_TIMING, hookMark } from "./tasks/hook";
+import { setNewTaskHook, setHookMark } from "./tasks/tasks";
 
 migrateSettings();
 initSettingsUI();
@@ -64,7 +64,7 @@ initTranscriptUI(() => scheduleAnalyze());
 initRecognizer(); initGauge(); initMicCheck(); initStandby();
 initTopic(); initAnalyzeTicker(); initKeywords(); initAsk(); preloadMermaid();
 initMinutesUI(); initPrep(() => showTab("tabPrep")); initActions(); initCarry(); initTasks(); initSession();
-initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud(); initRecorder(); initWork(); setUtteranceHook(onUtterance); initQuiet(); setNewTaskHook(queueTask); initHook();
+initDayLog(); initSummary(); renderLearn(); initMindmap(); initCloud(); initRecorder(); initWork(); setUtteranceHook(onUtterance); initQuiet(); setNewTaskHook(queueTask); setHookMark(hookMark); initHook();
 
 setStatus(); refreshNote(); updateFixStat();
 const restored = restoreSession(); renderAgBar(); updatePrepCount(); renderActions(); initialSnapshot();
