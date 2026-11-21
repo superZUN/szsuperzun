@@ -63,3 +63,45 @@ test("웹훅 주소가 없거나 서버 비밀번호가 없으면 할 일만 추
   await expect(page.locator("#hookMsg")).toContainText("서버 동기화 비밀번호");
   expect(ai.calls.filter(isHook)).toHaveLength(0);
 });
+
+test("다른 기기에서 웹훅을 저장했는데 이 기기는 몰라도, 직접 추가한 할 일은 서버에 물어보고 보냄", async ({ open, page }) => {
+  const ns = "d" + Date.now();
+  await mockAI(page, (c) => (isHook(c) ? "Send the quotation" : "[]"));
+  await open({ key: true, storage: { "ms.passcode": "test-pass" } });
+  expect(await app(page, "A.hook.configured")).toBe(false);
+  // saved from "another device": straight to the server
+  await page.evaluate((u) => fetch("/api/hook", { method: "PUT", headers: { "content-type": "application/json", "x-passcode": "test-pass" }, body: JSON.stringify({ url: u }) }), sinkOf(page, ns));
+  await addTodo(page, "견적서 보내기 / 나");
+  await expect.poll(() => arrived(page, ns)).toEqual([{ issue: "Send the quotation", pic: "나", status: "OPEN" }]);
+  expect(await app(page, "A.hook.configured")).toBe(true);
+});
+
+test("흐름이 한 건을 거절해도 뒤에 직접 추가한 할 일은 막히지 않고 바로 감, 상태에 문제 표시", async ({ open, page }) => {
+  const ns = "b" + Date.now();
+  await mockAI(page, (c) => (isHook(c) ? (c.prompt.includes("불량") ? "Analyze BAD defect" : "Book the meeting room") : "[]"));
+  await open({ key: true, storage: { "ms.passcode": "test-pass" } });
+  await setUrl(page, sinkOf(page, ns) + "&failOn=BAD");
+  await addTodo(page, "불량 분석");
+  await addTodo(page, "회의실 예약 / 박지은");
+  await expect.poll(() => arrived(page, ns)).toEqual([{ issue: "Book the meeting room", pic: "박지은", status: "OPEN" }]);
+  await page.click("#tabSet");
+  await expect(page.locator("#hookState")).toContainText("보낼 차례 1개");
+  await expect(page.locator("#hookDetail")).toContainText("문제: Power Automate가 받지 않음 (HTTP 500)");
+  await expect(page.locator("#hookRetry")).toBeVisible();
+});
+
+test("이미 있는 할 일과 같아서 합쳐지면 알려 줌; 할 일 탭에서 지운 걸 실시간 '할 일' 칸에 다시 적으면 다시 추가·전송", async ({ open, page }) => {
+  const ns = "m" + Date.now();
+  await mockAI(page, (c) => (isHook(c) ? "Re-measure samples" : "[]"));
+  await open({ key: true, storage: { "ms.passcode": "test-pass" } });
+  await setUrl(page, sinkOf(page, ns));
+  await page.click("#tabLive"); await page.click("#modeAct"); await page.fill("#actInput", "샘플 재측정"); await page.press("#actInput", "Enter");
+  await expect.poll(() => arrived(page, ns)).toHaveLength(1);
+  await addTodo(page, "샘플 재측정");
+  await expect(page.locator("#todoDup")).toContainText("이미 있는 할 일 '샘플 재측정'과(와) 같아서 하나로 합쳤어요");
+  // delete it in 할 일, then type it again in the live box
+  await app(page, "(A.tasks.forEach(t => { t.deleted = true; }), 0)");
+  await page.click("#tabLive"); await page.click("#modeAct"); await page.fill("#actInput", "샘플 재측정"); await page.press("#actInput", "Enter");
+  await expect.poll(() => app(page, "A.tasks.filter(t => !t.deleted).length")).toBe(1);
+  await expect.poll(() => arrived(page, ns)).toHaveLength(2);
+});

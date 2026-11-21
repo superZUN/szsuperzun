@@ -43,8 +43,8 @@ export default async (req) => {
     if (!body.issue) return json({ error: "issue_required" }, 400);
     try {
       const r = await fetch(saved.url, { method: "POST", headers: { "content-type": "application/json; charset=utf-8" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-      return json({ ok: r.ok, status: r.status }, r.ok ? 200 : 502);
-    } catch { return json({ ok: false, error: "unreachable" }, 502); }
+      return json(r.ok ? { ok: true, status: r.status } : { ok: false, error: `HTTP ${r.status}`, status: r.status }, r.ok ? 200 : 502);
+    } catch { return json({ ok: false, error: "응답 없음" }, 502); }
   }
   return json({ error: "method" }, 405);
 };

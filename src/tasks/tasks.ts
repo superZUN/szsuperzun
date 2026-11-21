@@ -194,7 +194,9 @@ export async function pullTasks() {
 }
 function todoAddFromInput() {
   const v = $("todoInput").value.trim(); if (!v) return; const [text, owner, due] = splitSlash(v);
+  const before = tasks.length;
   const t = addTask({ text, owner, due, from: "직접 추가" }); $("todoInput").value = ""; if (t && filter === "done") filter = "open"; renderTodo(); $("todoInput").focus();
+  $("todoDup").textContent = t && tasks.length === before ? `이미 있는 할 일 '${t.text}'과(와) 같아서 하나로 합쳤어요 — 새로 보내지 않았습니다. 다른 일이면 조금 다르게 적어 주세요.` : $("todoDup").textContent;
 }
 export function initTasks() {
   $("todoAdd").addEventListener("click", todoAddFromInput);

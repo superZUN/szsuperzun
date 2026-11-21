@@ -50,7 +50,11 @@ function middleware() {
     // a stand-in for the Power Automate flow: POST stores the body (?fail=1 answers 500), GET lists what arrived
     if (url.pathname === "/__test/hook-sink") {
       const key = url.searchParams.get("ns") || "default"; const list = (sink[key] ||= []);
-      if (req.method === "POST") { list.push(JSON.parse(String(await readBody(req)) || "{}")); res.statusCode = url.searchParams.get("fail") ? 500 : 202; res.end(""); return; }
+      if (req.method === "POST") { // ?failOn=word refuses only bodies whose issue contains that word
+        const body = JSON.parse(String(await readBody(req)) || "{}"), fo = url.searchParams.get("failOn");
+        const fail = url.searchParams.get("fail") || (fo && String(body.issue || "").includes(fo)); if (!fail) list.push(body);
+        res.statusCode = fail ? 500 : 202; res.end(""); return;
+      }
       res.setHeader("content-type", "application/json"); res.end(JSON.stringify(list)); return;
     }
     if (url.pathname === "/__test/blobs/dump") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(dumpNs(ns))); return; }

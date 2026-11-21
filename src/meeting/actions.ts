@@ -14,7 +14,12 @@ export const actionLine = (a: { owner: string; due: string }) => ["담당 " + (a
 export function addAction(a: { text: string; owner?: string; due?: string; src?: string }): Action | null {
   const text = (a.text || "").trim(); if (!text) return null;
   const ex = S.actions.find((x) => sameAction(x.text, text));
-  if (ex) { if (!ex.owner && a.owner) ex.owner = a.owner; if (!ex.due && a.due) ex.due = a.due; renderActions(); return null; }
+  if (ex) {
+    if (!ex.owner && a.owner) ex.owner = a.owner; if (!ex.due && a.due) ex.due = a.due;
+    const live = ex.taskId ? tasks.find((t) => t.id === ex.taskId && !t.deleted) : null;
+    if (!live && a.src !== "ai") { const t = addTask({ text: ex.text, owner: ex.owner, due: ex.due, from: defaultTitle() }); if (t) ex.taskId = t.id; } // deleted from 할 일, then typed or said again: it comes back
+    renderActions(); return null;
+  }
   const it: Action = { id: Date.now() + Math.random(), text, owner: (a.owner || "").trim(), due: (a.due || "").trim(), src: a.src || "me", at: Date.now() }; S.actions.push(it);
   const t = addTask({ text: it.text, owner: it.owner, due: it.due, from: defaultTitle() }); if (t) it.taskId = t.id; renderActions(); return it;
 }
